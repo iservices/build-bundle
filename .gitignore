@@ -1,0 +1,12 @@
+# Lists files and folders that are not to be included in Git.
+
+# npm stuff
+node_modules/
+npm-debug.log
+
+# mac system file
+.DS_Store
+
+# generated stuff
+testResults/
+testOutput/
