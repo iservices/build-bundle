@@ -4,19 +4,18 @@
   "description": "Tasks and tools for bundling client code.",
   "main": "src/index.js",
   "scripts": {
-    "test": "gulp test-with-coverage",
-    "lint": "eslint ."
+    "test": "gulp test-with-coverage"
   },
   "repository": {
     "type": "git",
-    "url": "ssh://dux07@caexvp0116/app/git/CustSol/nate/build-bundle.git"
+    "url": "https://github.com/iservices/build-bundle.git"
   },
   "keywords": [
     "build",
     "bundle"
   ],
   "author": "natewallace@gmail.com",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "dependencies": {
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-react": "^6.3.13",
