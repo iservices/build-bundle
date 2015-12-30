@@ -148,9 +148,9 @@ const tags = bundler.createScriptTags('login/oauth');
 The resulting tags array would be made up of the following string values in order which can be included in your page.
 
 1. `<script src="/packages/package-1.0.0.js"></script>`
-2. `<script src="/apps/framework/bundle.js"></script>`
-3. `<script src="/apps/login/bundle.js"></script>`
-4. `<script src="/apps/login/oauth/bundle.js"></script>`
+2. `<script src="/apps/1.0.1/framework/bundle.js"></script>`
+3. `<script src="/apps/1.0.1/login/bundle.js"></script>`
+4. `<script src="/apps/1.0.1/login/oauth/bundle.js"></script>`
 
 ## API
 
