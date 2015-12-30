@@ -17,7 +17,7 @@ Once the package is installed you will need to create a `gulpfile.js` file withi
 Within this file you will register the gulp tasks that are defined within this package using the registerTasks function.  The following is an example of this.
 
 ```
-'strict';
+'use strict';
 
 const bundle = require('build-bundle');
 
