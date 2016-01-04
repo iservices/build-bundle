@@ -359,7 +359,8 @@ function notify(err, title, message) {
  * @param {object} opts - Options for bundling.
  * @param {string} opts.inputDir - The folder to bundle app code from.
  * @param {string} opts.outputDir - The output for the bundled code.
- * @param {string} opts.version - A version number to output apps code into within the outputDir.
+ * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
+ * @param {string} [opts.name] - Optional name to append to the output dir for apps code.  This would appear after the version number.
  * @param {string} [opts.tasksPrefix] - Prefix to prepend to registered tasks.
  * @returns {void}
  */
@@ -371,10 +372,14 @@ module.exports = (opts) => {
     version: opts.version
   };
 
-  if (input.version) {
-    input.appsOutputDir = path.normalize(input.outputDir + 'apps/' + input.version + '/');
+  if (opts.version) {
+    input.appsOutputDir = path.normalize(input.outputDir + opts.version + '/');
   } else {
-    input.appsOutputDir = path.normalize(input.outputDir + 'apps/');
+    input.appsOutputDir = path.normalize(input.outputDir + '/');
+  }
+
+  if (opts.name) {
+    input.appsOutputDir = path.normalize(input.appsOutputDir + opts.name + '/');
   }
 
   input.packagesOutputDir = path.normalize(input.outputDir + 'packages/');

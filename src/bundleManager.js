@@ -11,11 +11,13 @@ const slash = path.normalize('/');
  * @param {string} rootBundlePath - The root path to the generated bundles.  This should match the path outputDir
  *                                  value used with the bundle tasks.
  * @param {string} baseUrlPath - The base url path for all scripts served up.
- * @param {string} [version] - Optional version number.  This should be the same value provided to the registerTasks function.
+ * @param {string} [version] - Optional version number.  This should be the same value that was provided to the registerTasks function.
+ * @param {string} [name] - Optional name.  This should be the same value that was provided to the registerTasks function.
  */
-const BundleManager = function init(rootBundlePath, baseUrlPath, version) {
+const BundleManager = function init(rootBundlePath, baseUrlPath, version, name) {
   this.rootBundlePath = path.normalize(rootBundlePath + '/');
   this.version = version;
+  this.name = name;
 
   if (baseUrlPath && baseUrlPath.length > 0 && baseUrlPath.charAt(baseUrlPath.length - 1) !== '/') {
     this.baseUrlPath = baseUrlPath + '/';
@@ -51,11 +53,12 @@ function formatScriptTag(filePath, fileName, isMinified) {
  * @param {object} data.pack - Package data.
  * @param {string} data.pack.version - Optional version number for the package.
  * @param {boolean} data.pack.modules - Indicates if there is a bunlde for a package.
- * @param {string} [version] - Optional version number to added to app bundle paths.
+ * @param {string} [version] - Optional version number to add to app bundle paths.
+ * @param {string} [name] - Optional name to add to app bundle paths.
  * @param {boolean} isMinified - Indicates if the minified version of files should be used.
  * @returns {string[]} - The tags that were parsed.
  */
-function parseScriptTags(baseUrlPath, filePath, data, version, isMinified) {
+function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified) {
   const result = [];
   if (!data) {
     return result;
@@ -70,11 +73,19 @@ function parseScriptTags(baseUrlPath, filePath, data, version, isMinified) {
   }
 
   if (data.files) {
+    let appPath = baseUrlPath;
     if (version) {
-      result.push(formatScriptTag(baseUrlPath + 'apps/' + version + filePath, 'bundle', isMinified));
-    } else {
-      result.push(formatScriptTag(baseUrlPath + 'apps' + filePath, 'bundle', isMinified));
+      appPath += version;
     }
+    if (name) {
+      if (version) {
+        appPath += '/' + name;
+      } else {
+        appPath += name;
+      }
+    }
+
+    result.push(formatScriptTag(appPath + filePath, 'bundle', isMinified));
   }
 
   return result;
@@ -97,6 +108,7 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
       path.normalize('/'),
       this.manifest[path.normalize('/')],
       this.version,
+      this.name,
       isMinified));
 
     // framework tags
@@ -105,6 +117,7 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
       path.normalize('/framework/'),
       this.manifest[path.normalize('/framework/')],
       this.version,
+      this.name,
       isMinified));
 
     const tags = [];
@@ -121,6 +134,7 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
         currentPath,
         this.manifest[currentPath],
         this.version,
+        this.name,
         isMinified));
 
       currentPath = path.normalize(currentPath + '/..');

@@ -5,7 +5,7 @@ const BundleManager = require('./bundleManager');
 
 module.exports = {
   registerTasks: tasks,
-  createManager: (rootBundlePath, baseUrlPath, version) => {
-    return new BundleManager(rootBundlePath, baseUrlPath, version);
+  createManager: (rootBundlePath, baseUrlPath, version, name) => {
+    return new BundleManager(rootBundlePath, baseUrlPath, version, name);
   }
 };

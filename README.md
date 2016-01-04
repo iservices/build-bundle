@@ -1,4 +1,4 @@
-# build-bundle
+# build-bundle (BETA)
 
 ## Overview
 This is a node package that defines gulp tasks and other utliites that are used to bundle code that will be provided to a client browser.  The goal of this package
@@ -183,7 +183,13 @@ The directory that bundle files will be output to.
 
 Type: `String`
 
-A version number for the bundled code.  This is used with caching schemes so that when the version number is incremented with a new release the new bundles will be downloaded instead of loaded from the browser cache.
+An optional version number for the bundled code.  This is used with caching schemes so that when the version number is incremented with a new release the new bundles will be downloaded instead of loaded from the browser cache.
+
+#### options.name
+
+Type: `String`
+
+An optional name to append to the output dir for apps code.  This would appear after the version number.
 
 #### options.tasksPrefix
 
@@ -212,6 +218,12 @@ The is the base path to apply to script tags when generating them.
 Type: `String`
 
 The version number of the resulting output from the bundle task.  It should be the same as the value provided with the options.version parameter when calling registerTasks.
+
+#### name
+
+Type: `String`
+
+The name of the resulting output from the bundle task.  It should be the same as the value provided with the options.name parameter when calling registerTasks.
 
 ### BundleManager
 

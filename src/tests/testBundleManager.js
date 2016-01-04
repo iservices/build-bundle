@@ -17,12 +17,12 @@ describe('BundleManager', function () {
     require(__dirname + '/fixtures/bundleWithFramework/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'bfwk-bundle') {
-        const bundler = bundle.createManager(__dirname + '/../../testOutput/bfwk/dist/', '/', '1.0.1');
+        const bundler = bundle.createManager(__dirname + '/../../testOutput/bfwk/dist/', '/', '1.0.1', 'apps');
         const tags = bundler.createScriptTags('/chat/group/');
         assert.equal(tags.length, 3, 'wrong number of tags.');
-        assert.equal('<script src="/apps/1.0.1/framework/bundle.js"></script>', tags[0], 'tag 1 is not correct.');
-        assert.equal('<script src="/apps/1.0.1/chat/bundle.js"></script>', tags[1], 'tag 2 is not correct.');
-        assert.equal('<script src="/apps/1.0.1/chat/group/bundle.js"></script>', tags[2], 'tag 3 is not correct.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js"></script>', 'tag 1 is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js"></script>', 'tag 2 is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js"></script>', 'tag 3 is not correct.');
         done();
       }
     });
@@ -35,13 +35,13 @@ describe('BundleManager', function () {
     require(__dirname + '/fixtures/bundleWithPackage/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'bpck-bundle') {
-        const bundler = bundle.createManager(__dirname + '/../../testOutput/bpck/dist/', '/');
+        const bundler = bundle.createManager(__dirname + '/../../testOutput/bpck/dist/', '/', 'apps');
         const tags = bundler.createScriptTags('/chat/group/');
         assert.equal(tags.length, 4, 'wrong number of tags.');
-        assert.equal('<script src="/packages/package-1.0.0.js"></script>', tags[0], 'tag 1 is not correct.');
-        assert.equal('<script src="/apps/framework/bundle.js"></script>', tags[1], 'tag 2 is not correct.');
-        assert.equal('<script src="/apps/chat/bundle.js"></script>', tags[2], 'tag 3 is not correct.');
-        assert.equal('<script src="/apps/chat/group/bundle.js"></script>', tags[3], 'tag 4 is not correct.');
+        assert.equal(tags[0], '<script src="/packages/package-1.0.0.js"></script>', 'tag 1 is not correct.');
+        assert.equal(tags[1], '<script src="/apps/framework/bundle.js"></script>', 'tag 2 is not correct.');
+        assert.equal(tags[2], '<script src="/apps/chat/bundle.js"></script>', 'tag 3 is not correct.');
+        assert.equal(tags[3], '<script src="/apps/chat/group/bundle.js"></script>', 'tag 4 is not correct.');
         done();
       }
     });

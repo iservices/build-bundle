@@ -7,5 +7,6 @@ bundle.registerTasks({
   inputDir: path.normalize(__dirname + '/apps/'),
   outputDir: path.normalize(__dirname + '/../../../../testOutput/bfwk/dist/'),
   version: '1.0.1',
+  name: 'apps',
   tasksPrefix: 'bfwk'
 });
