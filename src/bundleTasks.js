@@ -13,6 +13,7 @@ const through = require('through2');
 const path = require('path');
 const fs = require('fs');
 const del = require('del');
+const ps = require('process');
 
 const codeExt = '/*.js?(x)';
 const packagesExt = '/package.bundle';
@@ -366,11 +367,20 @@ function notify(err, title, message) {
  */
 module.exports = (opts) => {
   const input = {
-    glob: path.normalize(opts.inputDir + '/**/*/'),
-    inputDir: path.normalize(opts.inputDir + '/'),
-    outputDir: path.normalize(opts.outputDir + '/'),
-    version: opts.version
+    glob: path.normalize(opts.inputDir + '/**/*/')
   };
+
+  if (!path.isAbsolute(opts.inputDir)) {
+    input.inputDir = path.normalize(ps.cwd() + '/' + opts.inputDir);
+  } else {
+    input.inputDir = path.normalize(opts.inputDir + '/');
+  }
+
+  if (!path.isAbsolute(opts.outputDir)) {
+    input.outputDir = path.normalize(ps.cwd() + '/' + opts.outputDir);
+  } else {
+    input.outputDir = path.normalize(opts.outputDir + '/');
+  }
 
   if (opts.version) {
     input.appsOutputDir = path.normalize(input.outputDir + opts.version + '/');
