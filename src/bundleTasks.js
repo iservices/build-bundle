@@ -407,7 +407,9 @@ module.exports = (opts) => {
    * Browserify code.
    */
   gulp.task(input.tasksPrefix + 'bundle', function bundleAppsTask() {
-    del.sync(input.outputDir);
+    del.sync(input.appsOutputDir);
+    del.sync(input.packagesOutputDir);
+    del.sync(path.normalize(input.outputDir + '/manifest.json'));
     const filesMap = {};
     return globStream.create([input.inputDir, input.glob], { read: false })
       .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
