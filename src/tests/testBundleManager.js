@@ -18,11 +18,23 @@ describe('BundleManager', function () {
     gulp.on('task_stop', function (e) {
       if (e.task === 'bfwk-bundle') {
         const bundler = bundle.createManager(__dirname + '/../../testOutput/bfwk/dist/', '/', '1.0.1', 'apps');
-        const tags = bundler.createScriptTags('/chat/group/');
+        let tags = bundler.createScriptTags('/chat/group/');
         assert.equal(tags.length, 3, 'wrong number of tags.');
-        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js"></script>', 'tag 1 is not correct.');
-        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js"></script>', 'tag 2 is not correct.');
-        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js"></script>', 'tag 3 is not correct.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js"></script>', 'tag 1a is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js"></script>', 'tag 2a is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js"></script>', 'tag 3a is not correct.');
+
+        tags = bundler.createScriptTags('/chat/group/', true);
+        assert.equal(tags.length, 3, 'wrong number of tags.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.min.js"></script>', 'tag 1b is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.min.js"></script>', 'tag 2b is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.min.js"></script>', 'tag 3b is not correct.');
+
+        tags = bundler.createScriptTags('/chat/group/', false, 'defer');
+        assert.equal(tags.length, 3, 'wrong number of tags.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js" defer></script>', 'tag 1c is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js" defer></script>', 'tag 2c is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js" defer></script>', 'tag 3c is not correct.');
         done();
       }
     });

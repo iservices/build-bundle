@@ -32,22 +32,25 @@ const BundleManager = function init(rootBundlePath, baseUrlPath, version, name) 
   }
 };
 
-/*
+/**
  * Create a script tag using the given text.
  *
  * @param {string} filePath - The file path for the script tag.
  * @param {string} fileName - The file name for the script tag.  The extension needs to be ommitted as the function sets it.
  * @param {boolean} isMinified - Identifies if the minified version of the file should be used.
+ * @param {string} [attr] - Optional attribute to include in the script tag such as async or defer.
+ * @returns {string} The formatted script tag.
  */
-function formatScriptTag(filePath, fileName, isMinified) {
-  return '<script src="' + filePath.replace('\\', '/') + (isMinified ? fileName + '.min.js' : fileName + '.js') + '"></script>';
+function formatScriptTag(filePath, fileName, isMinified, attr) {
+  const attrText = attr ? ' ' + attr : '';
+  return '<script src="' + filePath.replace('\\', '/') + (isMinified ? fileName + '.min.js' : fileName + '.js') + '"' + attrText + '></script>';
 }
 
 /**
  * Turn the given data object into script tags.
  *
  * @param {string} baseUrlPath - The base url path for script tags.
- * @param {string} path - The path to create script tags for.
+ * @param {string} filePath - The path to create script tags for.
  * @param {object} data - The object to turn into script tags.
  * @param {boolean} data.files - Indicates if there is a bundle for files.
  * @param {object} data.pack - Package data.
@@ -56,9 +59,10 @@ function formatScriptTag(filePath, fileName, isMinified) {
  * @param {string} [version] - Optional version number to add to app bundle paths.
  * @param {string} [name] - Optional name to add to app bundle paths.
  * @param {boolean} isMinified - Indicates if the minified version of files should be used.
+ * @param {string} [attr] - Optional attribute to include in the script tag such as async or defer.
  * @returns {string[]} - The tags that were parsed.
  */
-function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified) {
+function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified, attr) {
   const result = [];
   if (!data) {
     return result;
@@ -66,9 +70,9 @@ function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified)
 
   if (data.pack && data.pack.modules) {
     if (data.pack.version) {
-      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package-' + data.pack.version, isMinified));
+      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package-' + data.pack.version, isMinified, attr));
     } else {
-      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package', isMinified));
+      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package', isMinified, attr));
     }
   }
 
@@ -85,7 +89,7 @@ function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified)
       }
     }
 
-    result.push(formatScriptTag(appPath + filePath, 'bundle', isMinified));
+    result.push(formatScriptTag(appPath + filePath, 'bundle', isMinified, attr));
   }
 
   return result;
@@ -96,9 +100,10 @@ function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified)
  *
  * @param {string} appPath - The path to the app to create script tags for.  This path needs to be relative to the rootBundlePath.
  * @param {boolean} [isMinified] - If true the minified version of scripts tags are returned.  The default is false.
+ * @param {string} [attr] - An optional attribute to include with the tags such as async or defer.
  * @returns {script[]} - The script tags for the given app path.
  */
-BundleManager.prototype.createScriptTags = function createScriptTags(appPath, isMinified) {
+BundleManager.prototype.createScriptTags = function createScriptTags(appPath, isMinified, attr) {
   const result = [];
 
   if (this.manifest) {
@@ -109,7 +114,8 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
       this.manifest[path.normalize('/')],
       this.version,
       this.name,
-      isMinified));
+      isMinified,
+      attr));
 
     // framework tags
     Array.prototype.push.apply(result, parseScriptTags(
@@ -118,7 +124,8 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
       this.manifest[path.normalize('/framework/')],
       this.version,
       this.name,
-      isMinified));
+      isMinified,
+      attr));
 
     const tags = [];
     let currentPath = path.normalize('/' + appPath);
@@ -135,7 +142,8 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
         this.manifest[currentPath],
         this.version,
         this.name,
-        isMinified));
+        isMinified,
+        attr));
 
       currentPath = path.normalize(currentPath + '/..');
       if (currentPath === '.' || currentPath === slash) {
