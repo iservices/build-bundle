@@ -255,6 +255,7 @@ function bundleStream(opts) {
       folder: data,
       filesMap: options.filesMap,
       minify: options.minify,
+      errorHandler: options.errorHandler,
       done: function () {
         self.push(data);
         done();
@@ -473,30 +474,24 @@ module.exports = (opts) => {
       if (!isPackage && (isAppPath || isEdit)) {
         // simple bundle conditions
         stream = globStream.create([targetPath], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
+          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
+          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
             updateManifest({ input: input, filesMap: filesMap });
           });
       } else if (isFramework) {
         // framework add/delete requires entire system rebundle
         stream = globStream.create([input.inputDir, input.glob], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
+          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
+          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
             updateManifest({ input: input, filesMap: filesMap });
           });
       } else {
         // bundle from the target directory down
         stream = globStream.create([targetPath, targetPath + '/**/*/'], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap }))
-          .on('error', (err) => { errorHandler(err); })
+          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
+          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
             updateManifest({ input: input, filesMap: filesMap });
           });
