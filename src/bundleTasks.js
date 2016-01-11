@@ -279,11 +279,17 @@ function processApp(opts) {
   const relativePath = '/' + path.dirname(opts.file).slice(opts.input.inputDir.length) + '/';
   const outputFolder = path.normalize(opts.input.appsOutputDir + relativePath);
   if (app.buildOutput) {
-    let result = app.buildOutput(opts.bundleManager, relativePath, true);
+    let result = app.buildOutput({
+      bundleManager: opts.bundleManager,
+      appPath: relativePath,
+      isMin: true });
     if (result) {
       fs.writeFileSync(outputFolder + 'index.html', result);
     }
-    result = app.buildOutput(opts.bundleManager, relativePath, false);
+    result = app.buildOutput({
+      bundleManager: opts.bundleManager,
+      appPath: relativePath,
+      isMin: false });
     if (result) {
       fs.writeFileSync(outputFolder + 'index.dev.html', result);
     }
