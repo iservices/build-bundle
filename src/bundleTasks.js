@@ -14,6 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const del = require('del');
 const ps = require('process');
+const BundleManager = require('./bundleManager');
 
 const codeExt = '/*.js?(x)';
 const packagesExt = '/package.bundle';
@@ -162,7 +163,7 @@ function bundle(opts) {
       fileBry.add(appFiles);
     } else if (files.length > 0) {
       // bundle files for libraries
-      files.forEach(function forEachFile(file) {
+      files.forEach(function (file) {
         fileBry.require(file, { expose: opts.input.baseOutputDir + file.slice(opts.input.inputDir.length) });
       });
     }
@@ -265,6 +266,53 @@ function bundleStream(opts) {
 }
 
 /**
+ * Process the given app.
+ * @param {object} opts - The options for the function.
+ * @param {object} opts.input - The input for the build tasks.
+ * @param {string} opts.file - The file that is the app to process.
+ * @param {BundleManager} opts.bundleManager - The bundle manager to pass to the function for processing the app.
+ * @returns {void}
+ */
+function processApp(opts) {
+  delete require.cache[require.resolve(opts.file)];
+  const app = require(opts.file);
+  const relativePath = '/' + path.dirname(opts.file).slice(opts.input.inputDir.length) + '/';
+  const outputFolder = path.normalize(opts.input.appsOutputDir + relativePath);
+  if (app.buildOutput) {
+    let result = app.buildOutput(opts.bundleManager, relativePath, true);
+    if (result) {
+      fs.writeFileSync(outputFolder + 'index.html', result);
+    }
+    result = app.buildOutput(opts.bundleManager, relativePath, false);
+    if (result) {
+      fs.writeFileSync(outputFolder + 'index.dev.html', result);
+    }
+  }
+}
+
+/**
+ * Stream that bundles folders.
+ *
+ * @param {object} opts - Options for the stream.
+ * @param {object} opts.input - Options provided through configuration.
+ * @param {boolean} opts.minify - If set to true the bundles will be minified.
+ * @param {object} opts.filesMap - If set to an object files will be cached here for performance.
+ * @returns {stream} A stream that bundles code.
+ */
+function processAppStream(opts) {
+  return through({ objectMode: true }, function (data, encoding, done) {
+    const self = this;
+    processApp({
+      input: opts.input,
+      file: data.path,
+      bundleManager: opts.bundleManager
+    });
+    self.push(data);
+    done();
+  });
+}
+
+/**
  * Write out a map of what folders have a bundle in them which can
  * be used to build script tags.
  *
@@ -355,7 +403,7 @@ function notify(err, title, message) {
   }
 }
 
-/*
+/**
  * Register tasks using the given options.
  *
  * @param {object} opts - Options for bundling.
@@ -368,7 +416,9 @@ function notify(err, title, message) {
  */
 module.exports = (opts) => {
   const input = {
-    glob: path.normalize(opts.inputDir + '/**/*/')
+    glob: path.normalize(opts.inputDir + '/**/*/'),
+    version: opts.version,
+    name: opts.name
   };
 
   if (!path.isAbsolute(opts.inputDir)) {
@@ -407,7 +457,7 @@ module.exports = (opts) => {
   /*
    * Browserify code.
    */
-  gulp.task(input.tasksPrefix + 'bundle', function bundleAppsTask() {
+  gulp.task(input.tasksPrefix + 'bundleApps', function () {
     del.sync(input.appsOutputDir);
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
@@ -421,11 +471,24 @@ module.exports = (opts) => {
   });
 
   /*
+   * Process apps.
+   */
+  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleApps'], function () {
+    const bundler = new BundleManager({
+      rootBundlePath: input.outputDir,
+      version: input.version,
+      name: input.name
+    });
+    return globStream.create(input.inputDir + '**/*.app.js', { read: false })
+      .pipe(processAppStream({ input: input, bundleManager: bundler }));
+  });
+
+  /*
    * Watch for changes to app files so we can rebundle on the fly.
    */
-  gulp.task(input.tasksPrefix + 'watch-bundle', function watchBundleAppsTask() {
+  gulp.task(input.tasksPrefix + 'watch-bundle', function () {
     const watch = require('gulp-watch');
-    watch(input.inputDir + '**' + codeExt, function watchBrowserifyApps(file) {
+    watch(input.inputDir + '**' + codeExt, function (file) {
       console.log('watch bundle: ' + file.path + ' event: ' + file.event);
 
       // determine the folder that needs to be bundled
@@ -459,7 +522,7 @@ module.exports = (opts) => {
 
       // report errors that occur when bundling
       let errorReported = false;
-      const errorHandler = function errorHandler(err) {
+      const errorHandler = function (err) {
         if (errorReported) {
           return;
         }
@@ -469,11 +532,11 @@ module.exports = (opts) => {
       };
 
       const filesMap = {};
-      let stream = null;
+      let streamBundle = null;
 
       if (!isPackage && (isAppPath || isEdit)) {
         // simple bundle conditions
-        stream = globStream.create([targetPath], { read: false })
+        streamBundle = globStream.create([targetPath], { read: false })
           .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
           .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
@@ -481,7 +544,7 @@ module.exports = (opts) => {
           });
       } else if (isFramework) {
         // framework add/delete requires entire system rebundle
-        stream = globStream.create([input.inputDir, input.glob], { read: false })
+        streamBundle = globStream.create([input.inputDir, input.glob], { read: false })
           .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
           .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
@@ -489,7 +552,7 @@ module.exports = (opts) => {
           });
       } else {
         // bundle from the target directory down
-        stream = globStream.create([targetPath, targetPath + '/**/*/'], { read: false })
+        streamBundle = globStream.create([targetPath, targetPath + '/**/*/'], { read: false })
           .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
           .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
           .on('end', () => {
@@ -497,10 +560,26 @@ module.exports = (opts) => {
           });
       }
 
-      stream.on('readable', () => {
-        while (stream.read() !== null) {
-          // process the entire stream
+      streamBundle.on('readable', () => {
+        while (streamBundle.read() !== null) {
+          // process the entire bundle stream
         }
+      }).on('end', () => {
+        // process apps after bundle updates are done
+        const bundler = new BundleManager({
+          rootBundlePath: input.outputDir,
+          version: input.version,
+          name: input.name
+        });
+
+        const streamApp = globStream.create(input.inputDir + '**/*.app.js', { read: false })
+          .pipe(processAppStream({ input: input, bundleManager: bundler }));
+
+        streamApp.on('readable', () => {
+          while (streamApp.read() !== null) {
+            // process the entire app stream
+          }
+        });
       });
     });
   });

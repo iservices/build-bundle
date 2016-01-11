@@ -5,28 +5,23 @@ const path = require('path');
 
 const slash = path.normalize('/');
 
-/*
+/**
  * This object can be used to manage bundles that have been created through the registered tasks.
  *
- * @param {string} rootBundlePath - The root path to the generated bundles.  This should match the path outputDir
- *                                  value used with the bundle tasks.
- * @param {string} baseUrlPath - The base url path for all scripts served up.
- * @param {string} [version] - Optional version number.  This should be the same value that was provided to the registerTasks function.
- * @param {string} [name] - Optional name.  This should be the same value that was provided to the registerTasks function.
+ * @constructor
+ * @param {Object} opts - The configuration object.
+ * @param {string} opts.rootBundlePath - The root path to the generated bundles.  This should match the path outputDir
+ *                                       value used with the bundle tasks.
+ * @param {string} [opts.version] - Optional version number.  This should be the same value that was provided to the registerTasks function.
+ * @param {string} [optsname] - Optional name.  This should be the same value that was provided to the registerTasks function.
  */
-const BundleManager = function init(rootBundlePath, baseUrlPath, version, name) {
-  this.rootBundlePath = path.normalize(rootBundlePath + '/');
-  this.version = version;
-  this.name = name;
-
-  if (baseUrlPath && baseUrlPath.length > 0 && baseUrlPath.charAt(baseUrlPath.length - 1) !== '/') {
-    this.baseUrlPath = baseUrlPath + '/';
-  } else {
-    this.baseUrlPath = baseUrlPath;
-  }
+const BundleManager = function (opts) {
+  this.rootBundlePath = path.normalize(opts.rootBundlePath + '/');
+  this.version = opts.version;
+  this.name = opts.name;
 
   try {
-    this.manifest = JSON.parse(fs.readFileSync(path.normalize(rootBundlePath + '/manifest.json'), 'utf8'));
+    this.manifest = JSON.parse(fs.readFileSync(path.normalize(this.rootBundlePath + '/manifest.json'), 'utf8'));
   } catch (err) {
     this.manifest = null;
   }
@@ -95,21 +90,31 @@ function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified,
   return result;
 }
 
-/*
+/**
  * Creates the script tags that are required for the given app path.
  *
  * @param {string} appPath - The path to the app to create script tags for.  This path needs to be relative to the rootBundlePath.
+ * @param {string} [baseUrlPath] - The base url path for all scripts served up.  Defaults to /.
  * @param {boolean} [isMinified] - If true the minified version of scripts tags are returned.  The default is false.
  * @param {string} [attr] - An optional attribute to include with the tags such as async or defer.
  * @returns {script[]} - The script tags for the given app path.
  */
-BundleManager.prototype.createScriptTags = function createScriptTags(appPath, isMinified, attr) {
+BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMinified, attr) {
   const result = [];
+
+  let baseUrl = baseUrlPath;
+  if (baseUrlPath) {
+    if (baseUrlPath.length > 0 && baseUrlPath.charAt(baseUrlPath.length - 1) !== '/') {
+      baseUrl = baseUrlPath + '/';
+    }
+  } else {
+    baseUrl = '/';
+  }
 
   if (this.manifest) {
     // root level tags
     Array.prototype.push.apply(result, parseScriptTags(
-      this.baseUrlPath,
+      baseUrl,
       path.normalize('/'),
       this.manifest[path.normalize('/')],
       this.version,
@@ -119,7 +124,7 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
 
     // framework tags
     Array.prototype.push.apply(result, parseScriptTags(
-      this.baseUrlPath,
+      baseUrl,
       path.normalize('/framework/'),
       this.manifest[path.normalize('/framework/')],
       this.version,
@@ -137,7 +142,7 @@ BundleManager.prototype.createScriptTags = function createScriptTags(appPath, is
       }
 
       Array.prototype.unshift.apply(tags, parseScriptTags(
-        this.baseUrlPath,
+        baseUrl,
         currentPath,
         this.manifest[currentPath],
         this.version,

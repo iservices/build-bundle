@@ -17,20 +17,23 @@ describe('BundleManager', function () {
     require(__dirname + '/fixtures/bundleWithFramework/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'bfwk-bundle') {
-        const bundler = bundle.createManager(__dirname + '/../../testOutput/bfwk/dist/', '/', '1.0.1', 'apps');
+        const bundler = bundle.createManager({
+          rootBundlePath: __dirname + '/../../testOutput/bfwk/dist/',
+          version: '1.0.1',
+          name: 'apps' });
         let tags = bundler.createScriptTags('/chat/group/');
         assert.equal(tags.length, 3, 'wrong number of tags.');
         assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js"></script>', 'tag 1a is not correct.');
         assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js"></script>', 'tag 2a is not correct.');
         assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js"></script>', 'tag 3a is not correct.');
 
-        tags = bundler.createScriptTags('/chat/group/', true);
+        tags = bundler.createScriptTags('/chat/group/', '/', true);
         assert.equal(tags.length, 3, 'wrong number of tags.');
         assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.min.js"></script>', 'tag 1b is not correct.');
         assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.min.js"></script>', 'tag 2b is not correct.');
         assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.min.js"></script>', 'tag 3b is not correct.');
 
-        tags = bundler.createScriptTags('/chat/group/', false, 'defer');
+        tags = bundler.createScriptTags('/chat/group/', '/', false, 'defer');
         assert.equal(tags.length, 3, 'wrong number of tags.');
         assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js" defer></script>', 'tag 1c is not correct.');
         assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js" defer></script>', 'tag 2c is not correct.');
@@ -47,7 +50,9 @@ describe('BundleManager', function () {
     require(__dirname + '/fixtures/bundleWithPackage/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'bpck-bundle') {
-        const bundler = bundle.createManager(__dirname + '/../../testOutput/bpck/dist/', '/', 'apps');
+        const bundler = bundle.createManager({
+          rootBundlePath: __dirname + '/../../testOutput/bpck/dist/',
+          name: 'apps' });
         const tags = bundler.createScriptTags('/chat/group/');
         assert.equal(tags.length, 4, 'wrong number of tags.');
         assert.equal(tags[0], '<script src="/packages/package-1.0.0.js"></script>', 'tag 1 is not correct.');

@@ -26,6 +26,8 @@ describe('registerTasks', function () {
         fs.statSync(__dirname + '/../../testOutput/simple/dist/apps/chat/group/bundle.js');
         fs.statSync(__dirname + '/../../testOutput/simple/dist/apps/chat/group/bundle.min.js');
         fs.statSync(__dirname + '/../../testOutput/simple/dist/apps/chat/group/bundle.min.js.map');
+        fs.statSync(__dirname + '/../../testOutput/simple/dist/apps/chat/group/index.html');
+        fs.statSync(__dirname + '/../../testOutput/simple/dist/apps/chat/group/index.dev.html');
         done();
       }
     });
@@ -85,12 +87,14 @@ describe('registerTasks', function () {
     require(__dirname + '/fixtures/watchSimple/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'sw-watch-bundle') {
-        const text = fs.readFileSync(__dirname + '/fixtures/watchSimple/apps/chat/chatHelper.js', 'utf8');
-        fs.writeFileSync(__dirname + '/fixtures/watchSimple/apps/chat/chatHelper.js', text);
+        const text = fs.readFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', 'utf8');
+        fs.writeFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', text);
         setTimeout(function () {
-          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/bundle.js');
-          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/bundle.min.js');
-          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/bundle.min.js.map');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.js');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js.map');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/index.html');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/index.dev.html');
           done();
         }, 6000);
       }
