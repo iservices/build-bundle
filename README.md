@@ -292,8 +292,8 @@ An optional attribute to include in the script tags created.  This should be eit
 
 ### buildOutput(options)
 
-When this function is exported from a app.js file it will be executed as part of the bundle build task.
-The value returned from this function will be written out to file alongside the bundle for the app.
+When this function is exported as the default from a file with an extension of .html.js it will be executed as part of the bundle build task.
+The value returned from this function will be written out to file in the corresponding output directory.
 
 #### options
 
