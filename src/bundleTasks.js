@@ -428,6 +428,7 @@ function notify(err, title, message) {
  *                                       files to some alternative output such as ecma6 to ecma5.  If not set then *.html.js files are loaded
  *                                       from the inputDir.
  * @param {string} [opts.tasksPrefix] - Prefix to prepend to registered tasks.
+ * @param {string[]} [opts.tasksDependencies] - Optional array of tasks names that must be completed before these registered tasks runs.
  * @returns {void}
  */
 module.exports = (opts) => {
@@ -435,7 +436,8 @@ module.exports = (opts) => {
     glob: path.normalize(opts.inputDir + '/**/*/'),
     version: opts.version,
     name: opts.name,
-    buildOutput: opts.buildOutput
+    buildOutput: opts.buildOutput,
+    tasksDependencies: opts.tasksDependencies || []
   };
 
   if (!path.isAbsolute(opts.inputDir)) {
@@ -484,7 +486,7 @@ module.exports = (opts) => {
   /*
    * Browserify code.
    */
-  gulp.task(input.tasksPrefix + 'bundleApps', function () {
+  gulp.task(input.tasksPrefix + 'bundleApps', input.tasksDependencies, function () {
     del.sync(input.appsOutputDir);
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
