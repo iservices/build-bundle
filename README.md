@@ -1,4 +1,4 @@
-# build-bundle (BETA)
+# build-bundle **BETA**
 
 ## Overview
 This is a node package that defines gulp tasks and other utliites that are used to bundle code that will be provided to a client browser.  The goal of this package
@@ -154,25 +154,25 @@ The resulting tags array would be made up of the following string values in orde
 3. `<script src="/1.0.1/login/bundle.js"></script>`
 4. `<script src="/1.0.1/login/oauth/bundle.js"></script>`
 
-## Build Output
+## Build HTML Output
 
-In addition to creating bundles you can also generate static output from your app.js files.
-After all of the bundles have been created for your project, all of the app.fs files will be loaded.  If you have exported a 
-function in your app.js file named `buildOutput` it will be executed and the results will be written to a file in the corresponding
-output folder beside the bundle file for the app.
+In addition to creating bundles you can also generate static html output for your app.js files.
+After all of the bundles have been created for your project, all of the files that have an extension of .html.js will be loaded.  
+It is expected that these modules will export a default function that will be executed to generate static html to write to files.
 
-For example you can generate html files that load your scripts by exporting the following function inside an app.js file.
+For example you can generate html files that load your scripts by exporting the following function inside an index.html.js file.
 
 ```
-exports.buildOutput = function (opts) {
+module.exports = function (opts) {
   return '<html><head>' +
          opts.bundleManager.createScriptTags(opts.appPath, '/', opts.isMin).join('\n') +
          '</head></html>';
 };
 ```
 
-This will result in an `index.html` and and `index.dev.html` file being generated beside the bundle files for the app.  The index.html file
-will contain minified script tags and the index.dev.html will contain unminified tags.
+This will result in `index.html` and and `index.dev.html` files being generated since the name of the file was index.  The index.html file
+will contain minified script tags and the index.dev.html will contain unminified tags.  You can have have any number of modules with an extension
+of .html.js in a folder and all of them will be executed and written out to their own files.
 
 ## API
 
@@ -212,6 +212,14 @@ An optional version number for the bundled code.  This is used with caching sche
 Type: `String`
 
 An optional name to append to the output dir for apps code.  This would appear after the version number.
+
+#### options.buildHtmlDir
+
+Type: `String`
+
+An alternative base path to load *.html.js files from.  
+This is useful if you are transforming files to some alternative output such as ecma6 to ecma5.  
+If not set then *.html.js files are loaded from the inputDir.
 
 #### options.tasksPrefix
 

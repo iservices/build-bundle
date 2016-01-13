@@ -273,25 +273,32 @@ function bundleStream(opts) {
  * @param {BundleManager} opts.bundleManager - The bundle manager to pass to the function for processing the app.
  * @returns {void}
  */
-function processApp(opts) {
+function processHtml(opts) {
   delete require.cache[require.resolve(opts.file)];
-  const app = require(opts.file);
-  const relativePath = '/' + path.dirname(opts.file).slice(opts.input.inputDir.length) + '/';
+  let htmlFunc = require(opts.file);
+  if (htmlFunc && !(typeof htmlFunc === 'function')) {
+    htmlFunc = htmlFunc.default;
+  }
+  if (!htmlFunc || !(typeof htmlFunc === 'function')) {
+    throw new Error('The given module is not defined as a function to generate html: ' + opts.file);
+  }
+  const relativePath = '/' + path.dirname(opts.file).slice(opts.input.buildHtmlDir.length) + '/';
   const outputFolder = path.normalize(opts.input.appsOutputDir + relativePath);
-  if (app.buildOutput) {
-    let result = app.buildOutput({
+  const fileName = path.basename(opts.file, '.html.js');
+  if (htmlFunc) {
+    let result = htmlFunc({
       bundleManager: opts.bundleManager,
       appPath: relativePath,
       isMin: true });
     if (result) {
-      fs.writeFileSync(outputFolder + 'index.html', result);
+      fs.writeFileSync(outputFolder + fileName + '.html', result);
     }
-    result = app.buildOutput({
+    result = htmlFunc({
       bundleManager: opts.bundleManager,
       appPath: relativePath,
       isMin: false });
     if (result) {
-      fs.writeFileSync(outputFolder + 'index.dev.html', result);
+      fs.writeFileSync(outputFolder + fileName + '.dev.html', result);
     }
   }
 }
@@ -305,10 +312,10 @@ function processApp(opts) {
  * @param {object} opts.filesMap - If set to an object files will be cached here for performance.
  * @returns {stream} A stream that bundles code.
  */
-function processAppStream(opts) {
+function processHtmlStream(opts) {
   return through({ objectMode: true }, function (data, encoding, done) {
     const self = this;
-    processApp({
+    processHtml({
       input: opts.input,
       file: data.path,
       bundleManager: opts.bundleManager
@@ -417,6 +424,9 @@ function notify(err, title, message) {
  * @param {string} opts.outputDir - The output for the bundled code.
  * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
  * @param {string} [opts.name] - Optional name to append to the output dir for apps code.  This would appear after the version number.
+ * @param {string} [opts.buildHtmlDir] - An alternative base path to load *.html.js files from.  This is useful if you are transforming
+ *                                       files to some alternative output such as ecma6 to ecma5.  If not set then *.html.js files are loaded
+ *                                       from the inputDir.
  * @param {string} [opts.tasksPrefix] - Prefix to prepend to registered tasks.
  * @returns {void}
  */
@@ -424,7 +434,8 @@ module.exports = (opts) => {
   const input = {
     glob: path.normalize(opts.inputDir + '/**/*/'),
     version: opts.version,
-    name: opts.name
+    name: opts.name,
+    buildOutput: opts.buildOutput
   };
 
   if (!path.isAbsolute(opts.inputDir)) {
@@ -460,6 +471,16 @@ module.exports = (opts) => {
 
   input.baseOutputDir = input.inputDir.slice(process.cwd().length);
 
+  if (opts.buildHtmlDir) {
+    if (!path.isAbsolute(opts.buildHtmlDir)) {
+      input.buildHtmlDir = path.normalize(ps.cwd() + '/' + opts.buildHtmlDir);
+    } else {
+      input.buildHtmlDir = path.normalize(opts.buildHtmlDir + '/');
+    }
+  } else {
+    input.buildHtmlDir = input.inputDir;
+  }
+
   /*
    * Browserify code.
    */
@@ -485,8 +506,8 @@ module.exports = (opts) => {
       version: input.version,
       name: input.name
     });
-    return globStream.create(input.inputDir + '**/*.app.js', { read: false })
-      .pipe(processAppStream({ input: input, bundleManager: bundler }));
+    return globStream.create(input.buildHtmlDir + '**/*.html.js', { read: false })
+      .pipe(processHtmlStream({ input: input, bundleManager: bundler }));
   });
 
   /*
@@ -578,8 +599,8 @@ module.exports = (opts) => {
           name: input.name
         });
 
-        const streamApp = globStream.create(input.inputDir + '**/*.app.js', { read: false })
-          .pipe(processAppStream({ input: input, bundleManager: bundler }));
+        const streamApp = globStream.create(input.inputDir + '**/*.html.js', { read: false })
+          .pipe(processHtmlStream({ input: input, bundleManager: bundler }));
 
         streamApp.on('readable', () => {
           while (streamApp.read() !== null) {
