@@ -144,7 +144,7 @@ function bundle(opts) {
   // file bundle
   if (files.length > 0 || appFiles.length > 0) {
     const appsOutputFolder = path.normalize(opts.input.appsOutputDir + folderPath.slice(opts.input.inputDir.length));
-    const fileBry = browserify({ debug: true });
+    const fileBry = browserify({ debug: true, extensions: ['.jsx'] });
     fileBry.transform(babelify, { presets: ['es2015', 'react'] });
     fileBry.plugin(minifyify, {
       map: 'bundle.min.js.map',
