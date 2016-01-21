@@ -314,14 +314,18 @@ function processHtml(opts) {
  */
 function processHtmlStream(opts) {
   return through({ objectMode: true }, function (data, encoding, done) {
-    const self = this;
-    processHtml({
-      input: opts.input,
-      file: data.path,
-      bundleManager: opts.bundleManager
-    });
-    self.push(data);
-    done();
+    try {
+      const self = this;
+      processHtml({
+        input: opts.input,
+        file: data.path,
+        bundleManager: opts.bundleManager
+      });
+      self.push(data);
+      done();
+    } catch (error) {
+      done(error);
+    }
   });
 }
 
@@ -612,7 +616,8 @@ module.exports = (opts) => {
         });
 
         const streamApp = globStream.create(input.buildHtmlDir + '**/*.html.js', { read: false })
-          .pipe(processHtmlStream({ input: input, bundleManager: bundler }));
+          .pipe(processHtmlStream({ input: input, bundleManager: bundler }))
+          .on('error', errorHandler);
 
         streamApp.on('readable', () => {
           while (streamApp.read() !== null) {
