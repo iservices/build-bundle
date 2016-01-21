@@ -601,7 +601,7 @@ module.exports = (opts) => {
           name: input.name
         });
 
-        const streamApp = globStream.create(input.inputDir + '**/*.html.js', { read: false })
+        const streamApp = globStream.create(input.buildHtmlDir + '**/*.html.js', { read: false })
           .pipe(processHtmlStream({ input: input, bundleManager: bundler }));
 
         streamApp.on('readable', () => {
