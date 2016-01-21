@@ -369,6 +369,7 @@ function writeManifest(opts) {
  * @returns {void}
  */
 function updateManifest(opts) {
+  const basePathSize = opts.input.inputDir.length - 1;
   let existingMap = null;
   try {
     existingMap = JSON.parse(fs.readFileSync(opts.input.outputDir + 'manifest.json', 'utf8'));
@@ -382,14 +383,23 @@ function updateManifest(opts) {
 
   for (const prop in opts.filesMap) {
     if (opts.filesMap.hasOwnProperty(prop)) {
-      existingMap[prop] = opts.filesMap[prop];
+      existingMap[prop.slice(basePathSize)] = {
+        files: (opts.filesMap[prop].files.length > 0),
+        pack: {
+          version: opts.filesMap[prop].pack.version,
+          modules: (opts.filesMap[prop].pack.modules && opts.filesMap[prop].pack.modules.length > 0)
+        }
+      };
     }
   }
 
-  writeManifest({
-    filesMap: existingMap,
-    input: opts.input
-  });
+  try {
+    fs.writeFileSync(opts.input.outputDir + 'manifest.json', JSON.stringify(existingMap));
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
 }
 
 /**
