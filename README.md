@@ -309,11 +309,11 @@ Type: `Object`
 
 The options pass to the function to use as part of building the output.
 
-#### options.buildManager
+#### options.bundleManager
 
-Type: `BuildManager`
+Type: `BundleManager`
 
-An instance of BuildManager created using the values provided to the bundle task.
+An instance of BundleManager created using the values provided to the bundle task.
 
 #### options.appPath
 
