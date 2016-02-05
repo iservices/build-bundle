@@ -149,7 +149,8 @@ function bundle(opts) {
     fileBry.plugin(minifyify, {
       map: 'bundle.min.js.map',
       output: path.normalize(appsOutputFolder + '/bundle.min.js.map'),
-      minify: opts.minify
+      minify: opts.minify,
+      uglify: opts.input.uglify
     });
     fileBry.external(parentFiles);
     fileBry.external(parentPackages);
@@ -204,7 +205,8 @@ function bundle(opts) {
     packageBry.plugin(minifyify, {
       map: packagesOutputName + '.min.js.map',
       output: path.normalize(packagesOutputFolder + '/' + packagesOutputName + '.min.js.map'),
-      minify: opts.minify
+      minify: opts.minify,
+      uglify: opts.input.uglify
     });
 
     packageBry.external(parentPackages);
@@ -438,6 +440,7 @@ function notify(err, title, message) {
  * @param {string} opts.outputDir - The output for the bundled code.
  * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
  * @param {string} [opts.name] - Optional name to append to the output dir for apps code.  This would appear after the version number.
+ * @param {object} [opts.uglify] - Options passed to the uglify package.  See the uglify docs for option definitions.
  * @param {string} [opts.buildHtmlDir] - An alternative base path to load *.html.js files from.  This is useful if you are transforming
  *                                       files to some alternative output such as ecma6 to ecma5.  If not set then *.html.js files are loaded
  *                                       from the inputDir.
@@ -450,6 +453,7 @@ module.exports = (opts) => {
     glob: path.normalize(opts.inputDir + '/**/*/'),
     version: opts.version,
     name: opts.name,
+    uglify: opts.uglify || {},
     buildOutput: opts.buildOutput,
     tasksDependencies: opts.tasksDependencies || []
   };

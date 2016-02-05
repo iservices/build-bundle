@@ -215,6 +215,12 @@ Type: `String`
 
 An optional name to append to the output dir for apps code.  This would appear after the version number.
 
+#### options.uglify
+
+Type: `Object`
+
+Options passed to the uglify package that is used to minify the code.  See [uglify-js](https://www.npmjs.com/package/uglify-js) site for option documentation.
+
 #### options.buildHtmlDir
 
 Type: `String`
