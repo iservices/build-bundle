@@ -112,8 +112,11 @@ From the example above the util.js and log.js code files would be bundled into a
 ### Framework Bundle
 
 Since the framework bundle is included as a dependency for all apps it is a convient place to put any code that is required globally for apps.
-The framework bundle is created from any code that is found in the framewokr folder directly beneath the the folder specified by the options.inputDir folder.
+The framework bundle is created from any code that is found in the framework folder directly beneath the folder specified by the options.inputDir folder.
 All code found in the folder or any of it's sub folders is bundled up into a single file.  Just like the other bundles, any packages or code that appears above it in the folder tree will be exclued from the bundle.
+
+If a package.bundle file is found in the framework folder a package bundle will be created.  This package will be made available globally as well,
+making it a good place to specify packages that may change more frequently than packages defined at the root level.  See below for more details on package bundles.
 
 ### Package Bundle
 
