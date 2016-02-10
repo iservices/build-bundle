@@ -50,16 +50,17 @@ function bundle(opts) {
 
   // collect and cache files from the top down for framework
   if (!filesMap[opts.input.frameworkDir]) {
+    const packageFiles = glob.sync(path.normalize(opts.input.frameworkDir + packagesExt), { nodir: true });
     filesMap[opts.input.frameworkDir] = {
       files: glob.sync(opts.input.frameworkDir + '/**' + codeExt, { nodir: true }),
-      pack: { modules: [] }
+      pack: (packageFiles.length > 0) ? JSON.parse(fs.readFileSync(packageFiles[0], 'utf8')) : { modules: [] }
     };
   }
 
   if (folderPath === opts.input.frameworkDir) {
     // we've already collected framework files
     files = filesMap[opts.input.frameworkDir].files;
-    pack = null;
+    pack = filesMap[opts.input.frameworkDir].pack;
   } else if (folderPath.indexOf(opts.input.frameworkDir) === 0) {
     // folders under the framework folder are bundled up into a single top level
     // bundle so there is no need to continue.
@@ -77,7 +78,7 @@ function bundle(opts) {
         const packageFiles = glob.sync(path.normalize(currentPath + packagesExt), { nodir: true });
         filesMap[currentPath] = {
           files: glob.sync(currentPath + codeExt, { nodir: true }),
-          pack: (packageFiles.length > 0) ? JSON.parse(fs.readFileSync(packageFiles[0], 'utf8')) : { manifest: [] }
+          pack: (packageFiles.length > 0) ? JSON.parse(fs.readFileSync(packageFiles[0], 'utf8')) : { modules: [] }
         };
       }
 
@@ -121,9 +122,10 @@ function bundle(opts) {
     currentPath = nextPath;
   }
 
-  // always exclude framework files unless we are bundling the framework
+  // always exclude framework files and packages unless we are bundling the framework
   if (folderPath !== opts.input.frameworkDir) {
     Array.prototype.push.apply(parentFiles, filesMap[opts.input.frameworkDir].files);
+    Array.prototype.push.apply(parentPackages, filesMap[opts.input.frameworkDir].pack.modules);
   }
 
   // create bundles
@@ -171,14 +173,14 @@ function bundle(opts) {
 
     fileBry.bundle()
       .on('error', function (err) {
-        doneCount++;
+        doneCount--;
         if (opts.errorHandler) {
           opts.errorHandler(err);
         } else {
           throw err;
         }
 
-        if (opts.done && doneCount === 2) {
+        if (opts.done && doneCount === 0) {
           opts.done();
         }
       })
@@ -186,8 +188,8 @@ function bundle(opts) {
     .pipe(buffer())
     .pipe(gulp.dest(appsOutputFolder))
     .on('end', function () {
-      doneCount++;
-      if (opts.done && doneCount === 2) {
+      doneCount--;
+      if (opts.done && doneCount === 0) {
         opts.done();
       }
     });
@@ -217,14 +219,14 @@ function bundle(opts) {
 
     packageBry.bundle()
       .on('error', function (err) {
-        doneCount++;
+        doneCount--;
         if (opts.errorHandler) {
           opts.errorHandler(err);
         } else {
           throw err;
         }
 
-        if (opts.done && doneCount === 2) {
+        if (opts.done && doneCount === 0) {
           opts.done();
         }
       })
@@ -232,8 +234,8 @@ function bundle(opts) {
     .pipe(buffer())
     .pipe(gulp.dest(packagesOutputFolder))
     .on('end', function () {
-      doneCount++;
-      if (opts.done && doneCount === 2) {
+      doneCount--;
+      if (opts.done && doneCount === 0) {
         opts.done();
       }
     });
