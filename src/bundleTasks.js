@@ -452,7 +452,7 @@ function notify(err, title, message) {
  */
 module.exports = (opts) => {
   const input = {
-    glob: path.normalize(opts.inputDir + '/**/*/'),
+    glob: path.normalize(opts.inputDir + '/**/*/').replace(/\\/g, '/'),
     version: opts.version,
     name: opts.name,
     uglify: opts.uglify || {},
@@ -511,7 +511,7 @@ module.exports = (opts) => {
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
     const filesMap = {};
-    return globStream.create([input.inputDir, input.glob], { read: false })
+    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
       .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
       .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap }))
       .on('end', () => {
