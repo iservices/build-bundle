@@ -254,6 +254,10 @@ function bundle(opts) {
 function bundleStream(opts) {
   const options = (opts || { minify: false, filesMap: {} });
   return through({ objectMode: true }, function (data, encoding, done) {
+    if ((!options.input.buildDev && !options.minify) || (!options.input.buildMin && options.minify)) {
+      done();
+      return;
+    }
     const self = this;
     bundle({
       input: opts.input,
