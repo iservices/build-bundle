@@ -442,6 +442,8 @@ function notify(err, title, message) {
  * @param {string} opts.outputDir - The output for the bundled code.
  * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
  * @param {string} [opts.name] - Optional name to append to the output dir for apps code.  This would appear after the version number.
+ * @param {boolean} [opts.buildDev] - Flag that indicates if development bundles will be created.  Defaults to true.
+ * @param {boolean} [opts.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
  * @param {object} [opts.uglify] - Options passed to the uglify package.  See the uglify docs for option definitions.
  * @param {string} [opts.buildHtmlDir] - An alternative base path to load *.html.js files from.  This is useful if you are transforming
  *                                       files to some alternative output such as ecma6 to ecma5.  If not set then *.html.js files are loaded
@@ -459,6 +461,18 @@ module.exports = (opts) => {
     buildOutput: opts.buildOutput,
     tasksDependencies: opts.tasksDependencies || []
   };
+
+  if (opts.buildDev !== undefined) {
+    input.buildDev = opts.buildDev;
+  } else {
+    input.buildDev = true;
+  }
+
+  if (opts.buildMin !== undefined) {
+    input.buildMin = opts.buildMin;
+  } else {
+    input.buildMin = true;
+  }
 
   if (!path.isAbsolute(opts.inputDir)) {
     input.inputDir = path.normalize(ps.cwd() + '/' + opts.inputDir);

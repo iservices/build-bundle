@@ -218,6 +218,18 @@ Type: `String`
 
 An optional name to append to the output dir for apps code.  This would appear after the version number.
 
+#### options.buildDev
+
+Type: `Boolean`
+
+Flag that indicates if development bundles will be created.  Defaults to true.
+
+#### options.buildMin
+
+Type: `Boolean`
+
+Flag that indicates if minified bundles will be created.  Defaults to true.
+
 #### options.uglify
 
 Type: `Object`
