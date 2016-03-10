@@ -87,8 +87,10 @@ describe('registerTasks', function () {
     require(__dirname + '/fixtures/watchSimple/gulpfile');
     gulp.on('task_stop', function (e) {
       if (e.task === 'sw-watch-bundle') {
-        const text = fs.readFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', 'utf8');
-        fs.writeFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', text);
+        setTimeout(function () {
+          const text = fs.readFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', 'utf8');
+          fs.writeFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', text);
+        }, 2000);
         setTimeout(function () {
           fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.js');
           fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js');
@@ -96,7 +98,7 @@ describe('registerTasks', function () {
           fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/index.html');
           fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/index.dev.html');
           done();
-        }, 6000);
+        }, 4000);
       }
     });
     gulp.start('sw-watch-bundle');
