@@ -133,7 +133,7 @@ BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMin
       attr));
 
     const tags = [];
-    let currentPath = path.normalize('/' + appPath);
+    let currentPath = path.normalize('/' + appPath + '/').toLowerCase();
 
     // all other tags
     for (;;) {
