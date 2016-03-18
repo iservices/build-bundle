@@ -1,6 +1,6 @@
 {
   "name": "build-bundle",
-  "version": "1.1.18",
+  "version": "1.1.19",
   "description": "Tasks and tools for bundling client code.",
   "main": "src/index.js",
   "scripts": {

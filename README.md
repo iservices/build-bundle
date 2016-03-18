@@ -135,6 +135,17 @@ This file specifies that the jquery and react packages are to be put into a bund
 The reason package bundles are versioned apart from the version specified with the registerTask function is because it's likely that package bundles will be updated
 far less frequently than your application code.
 
+You can also specify additional entry files for each package specified.  The code within these files will be executed when the package
+that is associated with it is loaded.  To specify an entry file add a colon (`:`) character at the end of the package name followed 
+by the path to the file that contains the code to execute.  Below is a made up example.
+
+```
+{
+  "version": "1.0.0",
+  "modules": ["examplePackage:node_modules/examplePackage/dist/load"]
+}
+``` 
+
 ### Bundle Manager
 
 After all of your client side code has been bundled you are ready to serve it up in your pages.  To do this you will need to include the resulting bundles in your pages using script tags that will reference them.
@@ -256,7 +267,7 @@ Type: `String[]`
 
 Optional array of tasks names that must be completed before these registered tasks runs.
 
-### build-asset.createManager(options)
+### build-bundle.createManager(options)
 
 This function creates a new instance of a BundleManager object and passes the parameters to the constructor.
 

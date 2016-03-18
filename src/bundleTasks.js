@@ -214,7 +214,13 @@ function bundle(opts) {
     packageBry.external(parentPackages);
 
     pack.modules.forEach(function (pck) {
-      packageBry.require(pck);
+      const parts = pck.split(':');
+      packageBry.require(parts[0]);
+
+      // add entry points if any are specified
+      if (parts.length > 1) {
+        packageBry.add(parts.slice(1));
+      }
     });
 
     packageBry.bundle()
