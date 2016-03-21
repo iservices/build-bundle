@@ -155,10 +155,10 @@ function bundle(opts) {
       uglify: opts.input.uglify
     });
     fileBry.external(parentFiles);
-    fileBry.external(parentPackages);
+    fileBry.external(parentPackages.map(function (p) { return p.split(':')[0]; }));
 
     if (pack && pack.modules) {
-      fileBry.external(pack.modules);
+      fileBry.external(pack.modules.map(function (p) { return p.split(':')[0]; }));
     }
 
     if (appFiles.length > 0) {
@@ -211,7 +211,7 @@ function bundle(opts) {
       uglify: opts.input.uglify
     });
 
-    packageBry.external(parentPackages);
+    packageBry.external(parentPackages.map(function (p) { return p.split(':')[0]; }));
 
     pack.modules.forEach(function (pck) {
       const parts = pck.split(':');
