@@ -359,7 +359,7 @@ function writeManifest(opts) {
   const result = {};
   for (const prop in opts.filesMap) {
     if (opts.filesMap.hasOwnProperty(prop)) {
-      result[prop.toLowerCase().slice(basePathSize).replace('\\', '//')] = {
+      result[prop.toLowerCase().slice(basePathSize)] = {
         files: (opts.filesMap[prop].files.length > 0),
         pack: {
           version: opts.filesMap[prop].pack.version,
@@ -402,7 +402,7 @@ function updateManifest(opts) {
 
   for (const prop in opts.filesMap) {
     if (opts.filesMap.hasOwnProperty(prop)) {
-      existingMap[prop.toLowerCase().slice(basePathSize).replace('\\', '//')] = {
+      existingMap[prop.toLowerCase().slice(basePathSize)] = {
         files: (opts.filesMap[prop].files.length > 0),
         pack: {
           version: opts.filesMap[prop].pack.version,

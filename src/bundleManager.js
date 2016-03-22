@@ -38,7 +38,7 @@ const BundleManager = function (opts) {
  */
 function formatScriptTag(filePath, fileName, isMinified, attr) {
   const attrText = attr ? ' ' + attr : '';
-  return '<script src="' + filePath.replace('\\', '/') + (isMinified ? fileName + '.min.js' : fileName + '.js') + '"' + attrText + '></script>';
+  return '<script src="' + (filePath + (isMinified ? fileName + '.min.js' : fileName + '.js')).replace('\\', '/') + '"' + attrText + '></script>';
 }
 
 /**
