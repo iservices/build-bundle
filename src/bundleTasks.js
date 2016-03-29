@@ -130,10 +130,10 @@ function bundle(opts) {
 
   // create bundles
   let doneCount = 2;
-  if (files.length === 0 && appFiles.length === 0) {
+  if (opts.excludeApps || (files.length === 0 && appFiles.length === 0)) {
     doneCount--;
   }
-  if (!pack || !pack.modules || pack.modules.length === 0) {
+  if (opts.excludePackages || !pack || !pack.modules || pack.modules.length === 0) {
     doneCount--;
   }
   if (doneCount === 0) {
