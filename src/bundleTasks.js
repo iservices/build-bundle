@@ -271,6 +271,8 @@ function bundleStream(opts) {
       folder: data,
       filesMap: options.filesMap,
       minify: options.minify,
+      excludeApps: opts.excludeApps,
+      excludePackages: opts.excludePackages,
       errorHandler: options.errorHandler,
       done: function () {
         self.push(data);
