@@ -144,7 +144,7 @@ function bundle(opts) {
   }
 
   // file bundle
-  if (files.length > 0 || appFiles.length > 0) {
+  if (!opts.excludeApps && (files.length > 0 || appFiles.length > 0)) {
     const appsOutputFolder = path.normalize(opts.input.appsOutputDir + folderPath.slice(opts.input.inputDir.length));
     const fileBry = browserify({ debug: true, extensions: ['.jsx'] });
     fileBry.transform(babelify, { presets: ['es2015', 'react'] });
@@ -196,7 +196,7 @@ function bundle(opts) {
   }
 
   // package bundle
-  if (pack && pack.modules && pack.modules.length > 0) {
+  if (!opts.excludePackages && (pack && pack.modules && pack.modules.length > 0)) {
     const packagesOutputFolder = path.normalize(opts.input.packagesOutputDir + folderPath.slice(opts.input.inputDir.length));
     const packagesOutputName = pack.version ? 'package-' + pack.version : 'package';
     const packageBry = browserify({
@@ -529,9 +529,9 @@ module.exports = (opts) => {
   }
 
   /*
-   * Browserify code.
+   * Browserify all code.
    */
-  gulp.task(input.tasksPrefix + 'bundleApps', input.tasksDependencies, function () {
+  gulp.task(input.tasksPrefix + 'bundleAll', input.tasksDependencies, function () {
     del.sync(input.appsOutputDir);
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
@@ -544,10 +544,40 @@ module.exports = (opts) => {
       });
   });
 
+  /**
+   * Browserify just the apps.
+   */
+  gulp.task(input.tasksPrefix + 'bundle-apps', input.tasksDependencies, function () {
+    del.sync(input.appsOutputDir);
+    del.sync(path.normalize(input.outputDir + '/manifest.json'));
+    const filesMap = {};
+    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
+      .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, excludeApps: false, excludePackages: true }))
+      .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, excludeApps: false, excludePackages: true }))
+      .on('end', () => {
+        writeManifest({ input: input, filesMap: filesMap });
+      });
+  });
+
+  /**
+   * Browserify just the packages.
+   */
+  gulp.task(input.tasksPrefix + 'bundle-packages', input.tasksDependencies, function () {
+    del.sync(input.packagesOutputDir);
+    del.sync(path.normalize(input.outputDir + '/manifest.json'));
+    const filesMap = {};
+    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
+      .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, excludeApps: true, excludePackages: false }))
+      .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, excludeApps: true, excludePackages: false }))
+      .on('end', () => {
+        writeManifest({ input: input, filesMap: filesMap });
+      });
+  });
+
   /*
    * Process apps.
    */
-  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleApps'], function () {
+  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleAll'], function () {
     const bundler = new BundleManager({
       rootBundlePath: input.outputDir,
       version: input.version,

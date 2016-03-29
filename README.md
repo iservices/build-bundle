@@ -49,7 +49,7 @@ There are 3 different types of bundles that can be created by this package which
 1. App Bundle - This is a standard browserify file that contains a single entry point as well as other code which is required by the entry point code.
 2. Lib Bundle - This is a browserify file that doesn't have an entry point but contains code which may be used by other browserify files that do.
 3. Framework Bundle - This the same as a lib bundle but it specifically contains all of the code found in the framework folder.
-4. Package Bundle - This is a browserify file that doesn't have an entry point and contains only package code.
+4. Package Bundle - This is a browserify file that contains code sourced from npm packages that is referenced by other bundles.
 
 The general idea behind the bundling structure is that code that appears below other code in the folder tree will have dependencies on the code above it.
 This way it is easy to visualize the dependency structure as well as chunk out the code into multiple bundles making it more effecient to download the code an 
@@ -194,9 +194,11 @@ of .html.js in a folder and all of them will be executed and written out to thei
 
 ### build-asset.registerTasks(options)
 
-The registerTasks function will register 2 tasks with gulp which are named as follows:
+The registerTasks function will register 4 tasks with gulp which are named as follows:
 
-- 'bundle' - This task will bundle code.
+- 'bundle' - This task will bundle all code.
+- 'bundle-apps' - This task will bundle only the app, lib and framework code.  It will not bundle the defined packages.
+- 'bundle-packages' - This task will only bundle the packages defined.  It will not bundle any of the app, lib or framework code.
 - 'watch-bundle' - This is a long running task that will listen for changes to files.  When a file is changed the necessary code will be rebundled.
 
 #### options
