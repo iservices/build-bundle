@@ -166,4 +166,18 @@ BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMin
   return result;
 };
 
+/**
+ * Check to see if the given path is an app or not.
+ *
+ * @param {String} appPath - The app path to check.
+ * @returns {Boolean} If the given app path is in fact an app, true will be returned, otherwise false will be returned.
+ */
+BundleManager.prototype.isApp = function (appPath) {
+  const normPath = path.normalize('/' + appPath + '/').toLowerCase();
+  if (this.manifest && this.manifest[normPath]) {
+    return this.manifest[normPath].isApp;
+  }
+  return false;
+};
+
 module.exports = BundleManager;

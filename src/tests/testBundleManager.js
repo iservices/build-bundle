@@ -26,6 +26,11 @@ describe('BundleManager', function () {
         assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js"></script>', 'tag 1a is not correct.');
         assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js"></script>', 'tag 2a is not correct.');
         assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js"></script>', 'tag 3a is not correct.');
+        assert.equal(bundler.isApp('/chat/group/'), true, '1a isApp result is incorrect.');
+        assert.equal(bundler.isApp('/chat/'), false, '2a isApp result is incorrect.');
+        assert.equal(bundler.isApp('/fake/'), false, '3a isApp result is incorrect.');
+        assert.equal(bundler.isApp('/'), false, '4a isApp result is incorrect.');
+        assert.equal(bundler.isApp('/framework/'), false, '5a isApp result is incorrect.');
 
         tags = bundler.createScriptTags('/chat/group/', '/', true);
         assert.equal(tags.length, 3, 'wrong number of tags.');

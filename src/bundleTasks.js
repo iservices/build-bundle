@@ -18,7 +18,7 @@ const BundleManager = require('./bundleManager');
 
 const codeExt = '/*.js?(x)';
 const packagesExt = '/package.bundle';
-const appFileRegEx = /[a-zA-Z0-9_\\-\\.]*\.[aA][pP][pP]\.[jJ][sS]/;
+const appFileRegEx = /[a-zA-Z0-9_\\-\\.]*\.[aA][pP][pP]\.[jJ][sS]$/;
 const appFilesExt = '*.app.js';
 
 /**
@@ -352,17 +352,20 @@ function processHtmlStream(opts) {
  *
  * @param {object} opts - Options.
  * @param {object} opts.filesMap - An object that maps folder paths to the files that are contained within them.
- * @param {string} opts.basePath - The basepath for the files.
+ * @param {object} opts.existingManifest - If set the new manifest will be merged with this manifest set here.
  * @param {object} opts.input - The configuration input.
  * @returns {void}
  */
-function writeManifest(opts) {
+function editManifest(opts) {
+  const resultManifest = opts.existingManifest || {};
   const basePathSize = opts.input.inputDir.length - 1;
-  const result = {};
+  const appSearch = function (item) { return item.match(appFileRegEx) !== null; };
+
   for (const prop in opts.filesMap) {
     if (opts.filesMap.hasOwnProperty(prop)) {
-      result[prop.toLowerCase().slice(basePathSize)] = {
+      resultManifest[prop.toLowerCase().slice(basePathSize)] = {
         files: (opts.filesMap[prop].files.length > 0),
+        isApp: (opts.filesMap[prop].files.findIndex(appSearch) !== -1),
         pack: {
           version: opts.filesMap[prop].pack.version,
           modules: (opts.filesMap[prop].pack.modules && opts.filesMap[prop].pack.modules.length > 0)
@@ -372,12 +375,25 @@ function writeManifest(opts) {
   }
 
   try {
-    fs.writeFileSync(opts.input.outputDir + 'manifest.json', JSON.stringify(result));
+    fs.writeFileSync(opts.input.outputDir + 'manifest.json', JSON.stringify(resultManifest));
   } catch (err) {
     if (err.code !== 'ENOENT') {
       throw err;
     }
   }
+}
+
+/**
+ * Write out a map of what folders have a bundle in them which can
+ * be used to build script tags.
+ *
+ * @param {object} opts - Options.
+ * @param {object} opts.filesMap - An object that maps folder paths to the files that are contained within them.
+ * @param {object} opts.input - The configuration input.
+ * @returns {void}
+ */
+function writeManifest(opts) {
+  editManifest(opts);
 }
 
 /**
@@ -390,37 +406,22 @@ function writeManifest(opts) {
  * @returns {void}
  */
 function updateManifest(opts) {
-  const basePathSize = opts.input.inputDir.length - 1;
-  let existingMap = null;
+  let existingManifest = null;
   try {
-    existingMap = JSON.parse(fs.readFileSync(opts.input.outputDir + 'manifest.json', 'utf8'));
+    existingManifest = JSON.parse(fs.readFileSync(opts.input.outputDir + 'manifest.json', 'utf8'));
   } catch (err) {
     if (err.code === 'ENOENT') {
-      existingMap = {};
+      existingManifest = {};
     } else {
       throw err;
     }
   }
 
-  for (const prop in opts.filesMap) {
-    if (opts.filesMap.hasOwnProperty(prop)) {
-      existingMap[prop.toLowerCase().slice(basePathSize)] = {
-        files: (opts.filesMap[prop].files.length > 0),
-        pack: {
-          version: opts.filesMap[prop].pack.version,
-          modules: (opts.filesMap[prop].pack.modules && opts.filesMap[prop].pack.modules.length > 0)
-        }
-      };
-    }
-  }
-
-  try {
-    fs.writeFileSync(opts.input.outputDir + 'manifest.json', JSON.stringify(existingMap));
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      throw err;
-    }
-  }
+  editManifest({
+    filesMap: opts.filesMap,
+    existingManifest: existingManifest,
+    input: opts.input
+  });
 }
 
 /**
