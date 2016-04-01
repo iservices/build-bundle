@@ -3,7 +3,7 @@
 
 const gulp = require('gulp');
 const browserify = require('browserify');
-const babelify = require('babelify');
+const tsify = require('tsify');
 const minifyify = require('minifyify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
@@ -16,10 +16,10 @@ const del = require('del');
 const ps = require('process');
 const BundleManager = require('./bundleManager');
 
-const codeExt = '/*.js?(x)';
+const codeExt = '/*.[jt]s';
 const packagesExt = '/package.bundle';
-const appFileRegEx = /[a-zA-Z0-9_\\-\\.]*\.[aA][pP][pP]\.[jJ][sS]$/;
-const appFilesExt = '*.app.js';
+const appFileRegEx = /[a-zA-Z0-9_\\-\\.]*\.[aA][pP][pP]\.[jJtT][sS]$/;
+const appFilesExt = '*.app.[jJtT]s';
 
 /**
  * Bundle the source code found in the given folder.
@@ -147,7 +147,12 @@ function bundle(opts) {
   if (!opts.excludeApps && (files.length > 0 || appFiles.length > 0)) {
     const appsOutputFolder = path.normalize(opts.input.appsOutputDir + folderPath.slice(opts.input.inputDir.length));
     const fileBry = browserify({ debug: true, extensions: ['.jsx'] });
-    fileBry.transform(babelify, { presets: ['es2015', 'react'] });
+    fileBry.plugin(tsify, {
+      module: 'commonjs',
+      target: 'ES5',
+      allowJs: true,
+      sourceMap: true
+    });
     fileBry.plugin(minifyify, {
       map: 'bundle.min.js.map',
       output: path.normalize(appsOutputFolder + '/bundle.min.js.map'),
