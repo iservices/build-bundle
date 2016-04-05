@@ -22,6 +22,7 @@
     "glob": "^6.0.1",
     "glob-stream": "^5.2.0",
     "gulp": "^3.9.0",
+    "gulp-tsc": "^1.1.5",
     "minifyify": "^7.1.0",
     "through2": "^2.0.0",
     "tsify": "git+https://github.com/natewallace/tsify.git",

@@ -13,12 +13,10 @@ const slash = path.normalize('/');
  * @param {string} opts.rootBundlePath - The root path to the generated bundles.  This should match the path outputDir
  *                                       value used with the bundle tasks.
  * @param {string} [opts.version] - Optional version number.  This should be the same value that was provided to the registerTasks function.
- * @param {string} [optsname] - Optional name.  This should be the same value that was provided to the registerTasks function.
  */
 const BundleManager = function (opts) {
   this.rootBundlePath = path.normalize(opts.rootBundlePath + '/');
   this.version = opts.version;
-  this.name = opts.name;
 
   try {
     this.manifest = JSON.parse(fs.readFileSync(path.normalize(this.rootBundlePath + '/manifest.json'), 'utf8'));
@@ -52,12 +50,11 @@ function formatScriptTag(filePath, fileName, isMinified, attr) {
  * @param {string} data.pack.version - Optional version number for the package.
  * @param {boolean} data.pack.modules - Indicates if there is a bunlde for a package.
  * @param {string} [version] - Optional version number to add to app bundle paths.
- * @param {string} [name] - Optional name to add to app bundle paths.
  * @param {boolean} isMinified - Indicates if the minified version of files should be used.
  * @param {string} [attr] - Optional attribute to include in the script tag such as async or defer.
  * @returns {string[]} - The tags that were parsed.
  */
-function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified, attr) {
+function parseScriptTags(baseUrlPath, filePath, data, version, isMinified, attr) {
   const result = [];
   if (!data) {
     return result;
@@ -72,16 +69,9 @@ function parseScriptTags(baseUrlPath, filePath, data, version, name, isMinified,
   }
 
   if (data.files) {
-    let appPath = baseUrlPath;
+    let appPath = baseUrlPath + 'apps';
     if (version) {
-      appPath += version;
-    }
-    if (name) {
-      if (version) {
-        appPath += '/' + name;
-      } else {
-        appPath += name;
-      }
+      appPath += '/' + version;
     }
 
     result.push(formatScriptTag(appPath + filePath, 'bundle', isMinified, attr));
@@ -118,7 +108,6 @@ BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMin
       path.normalize('/'),
       this.manifest[path.normalize('/')],
       this.version,
-      this.name,
       isMinified,
       attr));
 
@@ -128,7 +117,6 @@ BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMin
       path.normalize('/framework/'),
       this.manifest[path.normalize('/framework/')],
       this.version,
-      this.name,
       isMinified,
       attr));
 
@@ -146,7 +134,6 @@ BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMin
         currentPath,
         this.manifest[currentPath],
         this.version,
-        this.name,
         isMinified,
         attr));
 

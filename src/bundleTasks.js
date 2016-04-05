@@ -460,7 +460,6 @@ function notify(err, title, message) {
  * @param {string} opts.inputDir - The folder to bundle app code from.
  * @param {string} opts.outputDir - The output for the bundled code.
  * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
- * @param {string} [opts.name] - Optional name to append to the output dir for apps code.  This would appear after the version number.
  * @param {boolean} [opts.buildDev] - Flag that indicates if development bundles will be created.  Defaults to true.
  * @param {boolean} [opts.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
  * @param {object} [opts.uglify] - Options passed to the uglify package.  See the uglify docs for option definitions.
@@ -505,18 +504,15 @@ module.exports = (opts) => {
     input.outputDir = path.normalize(opts.outputDir + '/');
   }
 
-  if (opts.version) {
-    input.appsOutputDir = path.normalize(input.outputDir + opts.version + '/');
-  } else {
-    input.appsOutputDir = path.normalize(input.outputDir + '/');
-  }
+  input.appsOutputDir = path.normalize(input.outputDir + 'apps/');
 
-  if (opts.name) {
-    input.appsOutputDir = path.normalize(input.appsOutputDir + opts.name + '/');
+  if (opts.version) {
+    input.appsOutputDir = path.normalize(input.appsOutputDir + opts.version + '/');
   }
 
   input.packagesOutputDir = path.normalize(input.outputDir + 'packages/');
   input.frameworkDir = path.normalize(input.inputDir + 'framework/');
+  input.compileOutputDir = path.normalize(input.outputDir + 'temp/');
 
   if (opts.tasksPrefix) {
     input.tasksPrefix = opts.tasksPrefix + '-';
@@ -537,9 +533,15 @@ module.exports = (opts) => {
   }
 
   /*
+   * Compile the code that will be bundled.
+   */
+  gulp.task(input.tasksPrefix + 'bundleCompile', input.tasksDependencies, function () {
+  });
+
+  /*
    * Browserify all code.
    */
-  gulp.task(input.tasksPrefix + 'bundleAll', input.tasksDependencies, function () {
+  gulp.task(input.tasksPrefix + 'bundleAll', [input.tasksPrefix + 'bundleCompile'], function () {
     del.sync(input.appsOutputDir);
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
@@ -555,7 +557,7 @@ module.exports = (opts) => {
   /**
    * Browserify just the apps.
    */
-  gulp.task(input.tasksPrefix + 'bundle-apps', input.tasksDependencies, function () {
+  gulp.task(input.tasksPrefix + 'bundle-apps', [input.tasksPrefix + 'bundleCompile'], function () {
     del.sync(input.appsOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
     const filesMap = {};
@@ -570,7 +572,7 @@ module.exports = (opts) => {
   /**
    * Browserify just the packages.
    */
-  gulp.task(input.tasksPrefix + 'bundle-packages', input.tasksDependencies, function () {
+  gulp.task(input.tasksPrefix + 'bundle-packages', [input.tasksPrefix + 'bundleCompile'], function () {
     del.sync(input.packagesOutputDir);
     del.sync(path.normalize(input.outputDir + '/manifest.json'));
     const filesMap = {};

@@ -166,9 +166,9 @@ const tags = bundler.createScriptTags('login/oauth');
 The resulting tags array would be made up of the following string values in order which can be included in your page.
 
 1. `<script src="/packages/package-1.0.0.js"></script>`
-2. `<script src="/1.0.1/framework/bundle.js"></script>`
-3. `<script src="/1.0.1/login/bundle.js"></script>`
-4. `<script src="/1.0.1/login/oauth/bundle.js"></script>`
+2. `<script src="/apps/1.0.1/framework/bundle.js"></script>`
+3. `<script src="/apps/1.0.1/login/bundle.js"></script>`
+4. `<script src="/apps/1.0.1/login/oauth/bundle.js"></script>`
 
 ## Build HTML Output
 
@@ -224,12 +224,6 @@ The directory that bundle files will be output to.
 Type: `String`
 
 An optional version number for the bundled code.  This is used with caching schemes so that when the version number is incremented with a new release the new bundles will be downloaded instead of loaded from the browser cache.
-
-#### options.name
-
-Type: `String`
-
-An optional name to append to the output dir for apps code.  This would appear after the version number.
 
 #### options.buildDev
 
@@ -290,12 +284,6 @@ This is the root path of the output from the bundle task.  It should be the same
 Type: `String`
 
 The version number of the resulting output from the bundle task.  It should be the same as the value provided with the options.version parameter when calling registerTasks.
-
-#### options.name
-
-Type: `String`
-
-The name of the resulting output from the bundle task.  It should be the same as the value provided with the options.name parameter when calling registerTasks.
 
 ### BundleManager
 
