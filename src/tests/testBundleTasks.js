@@ -15,6 +15,7 @@ describe('registerTasks', function () {
   });
 
   it('simple task setup works as expected.', function (done) {
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/simple/'));
     require(__dirname + '/fixtures/tasksSimple/gulpfile');
     gulp.on('task_stop', function (e) {
@@ -35,6 +36,7 @@ describe('registerTasks', function () {
   });
 
   it('task setup with framework works as expected.', function (done) {
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/fwk/'));
     require(__dirname + '/fixtures/tasksWithFramework/gulpfile');
     gulp.on('task_stop', function (e) {
@@ -56,7 +58,7 @@ describe('registerTasks', function () {
   });
 
   it('task setup with packages works as expected.', function (done) {
-    this.timeout(4000);
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/pck/'));
     require(__dirname + '/fixtures/tasksWithPackage/gulpfile');
     gulp.on('task_stop', function (e) {
@@ -81,8 +83,7 @@ describe('registerTasks', function () {
   });
 
   it('simple watch task setup works as expected.', function (done) {
-    this.timeout(8000);
-
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/watchSimple/'));
     require(__dirname + '/fixtures/watchSimple/gulpfile');
     gulp.on('task_stop', function (e) {

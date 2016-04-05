@@ -12,7 +12,7 @@ const bundle = require('../index');
  */
 describe('BundleManager', function () {
   it('createScriptTags function works with framework bundles.', function (done) {
-    this.timeout(4000);
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/bfwk/'));
     require(__dirname + '/fixtures/bundleWithFramework/gulpfile');
     gulp.on('task_stop', function (e) {
@@ -50,7 +50,7 @@ describe('BundleManager', function () {
   });
 
   it('createScriptTags function works with framework package bundles.', function (done) {
-    this.timeout(4000);
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/bfwkp/'));
     require(__dirname + '/fixtures/bundleWithFrameworkPackage/gulpfile');
     gulp.on('task_stop', function (e) {
@@ -87,7 +87,7 @@ describe('BundleManager', function () {
   });
 
   it('createScriptTags function works with bundle bundles.', function (done) {
-    this.timeout(4000);
+    this.timeout(100000);
     del.sync(path.normalize(__dirname + '/../../testOutput/bpck/'));
     require(__dirname + '/fixtures/bundleWithPackage/gulpfile');
     gulp.on('task_stop', function (e) {
