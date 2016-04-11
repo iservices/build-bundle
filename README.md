@@ -5,7 +5,7 @@ This package is currently in **BETA**
 ## Overview
 This is a node package that defines gulp tasks and other utliites that are used to bundle code that will be provided to a client browser.  The goal of this package
 is to provide an easy to use structure that automates the bundling of code in an efficient way that is well suited for large scale enterprise applications.
-The [browserify](https://www.npmjs.com/package/browserify) and [babelify](https://www.npmjs.com/package/babelify) packages are used for bundling.
+The [browserify](https://www.npmjs.com/package/browserify) package is used for bundling.
 
 ## Guide
 
@@ -46,9 +46,9 @@ For more information on how browserify works, consult the browserify [documentat
 
 There are 3 different types of bundles that can be created by this package which are defined as follows.
 
-1. App Bundle - This is a standard browserify file that contains a single entry point as well as other code which is required by the entry point code.
-2. Lib Bundle - This is a browserify file that doesn't have an entry point but contains code which may be used by other browserify files that do.
-3. Framework Bundle - This the same as a lib bundle but it specifically contains all of the code found in the framework folder.
+1. App Bundle - This is a standard browserify file that contains one or more entry points as well as other code which is required by the entry point code.
+2. Lib Bundle - This is a browserify file that doesn't have any entry points but contains code which may be used by other browserify files that do.
+3. Framework Bundle - This the same as a lib bundle but it specifically contains all of the code found in the the root level framework folder.
 4. Package Bundle - This is a browserify file that contains code sourced from npm packages that is referenced by other bundles.
 
 The general idea behind the bundling structure is that code that appears below other code in the folder tree will have dependencies on the code above it.
@@ -75,15 +75,16 @@ src/
    |__framework/
    |  |__math.js
    |  |__chat.js
-   |__package.bundle
+   |__package.js
 
 ```
 
 ### App Bundle
 
-App bundles correspond to a page that is served up by your site as the entry pont of the app bundle gets executed when your page is loaded.
-App bundles are created by giving a file an extension of `.app.js`.  There can only be one app bundle per folder and no other app bundles can be defined in a folder beneath a folder that contains an app bundle.
-When an app bundle is created the file with the .app.js extension will become the entry point and any code referenced directly or indirectly with a require statement will be included in the bundle with the following exceptions.
+App bundles correspond to a page that is served up by your site where the entry pont of the app bundle gets executed when your page is loaded.
+App bundles are created by giving a file an extension of `.app.js`.  No additional app bundles can be defined in any folder beneath a folder that contains an app bundle.
+When an app bundle is created the files with the .app.js extension will become the entry points and any code referenced directly or indirectly with a require statement will 
+be included in the bundle with the following exceptions.
 
 - Code that appears in folders above the folder that contains the .app.js file.
 - Code that appears in the framework folder or anywhere below the framework folder.
@@ -93,15 +94,17 @@ From the example above if the src/client/login/oauth/oauth.app.js file defined t
 
 - /src/client/login/util.js
 - /src/client/login/log.js
-- /src/client/login/thirdParty.js
+- /src/client/login/oauth/thirdParty.js
 - /src/client/framework/math.js
 
-Only the oauth.app.js and thirdParty.js code would be bundled together into a single file as the util.js and log.js files appear in a folder above and the math.js folder appears in the framework folder.
+Only the oauth.app.js and thirdParty.js code would be bundled together into a single file since the util.js and log.js files appear in a folder above 
+and the math.js folder appears in the framework folder.
 
 ### Lib Bundle
 
 A lib bundle is used to contain code that may be reused by one or more app bundles.  By using lib bundles a client can download common code once and have it used by multiple apps.
-A lib bundle is created when a folder contains code files but none with a .app.js extension.  All the files in that folder and any code referenced directly or indirectly with a require statement will be included in the bundle with the following exceptions.
+A lib bundle is created when a folder contains code files but none with a .app.js extension.  All the files in that folder and any code referenced directly or indirectly with a 
+require statement will be included in the bundle with the following exceptions.
 
 - Code that appears in folders above the folder.
 - Code that appears in the framework folder or anywhere below the framework folder.
@@ -111,250 +114,165 @@ From the example above the util.js and log.js code files would be bundled into a
 
 ### Framework Bundle
 
-Since the framework bundle is included as a dependency for all apps it is a convient place to put any code that is required globally for apps.
+Since the framework bundle is included as a dependency for all apps it is a convenient place to put any code that is required globally for apps.
 The framework bundle is created from any code that is found in the framework folder directly beneath the folder specified by the options.inputDir folder.
-All code found in the folder or any of it's sub folders is bundled up into a single file.  Just like the other bundles, any packages or code that appears above it in the folder tree will be exclued from the bundle.
+All code found in this folder or any of it's sub folders is bundled up into a single file.  Just like the other bundles, any packages or code that appears above it in the folder 
+tree will be exclued from the bundle.
 
 If a package.bundle file is found in the framework folder a package bundle will be created.  This package will be made available globally as well,
 making it a good place to specify packages that may change more frequently than packages defined at the root level.  See below for more details on package bundles.
 
 ### Package Bundle
 
-The package bundle makes it easy to include npm packages as part of your bundles.  This is similar to lib bundles in that it allows common code to be downloaded once and have it used by multiple apps.
-A package bundle is created by files named package.bundle which are json formatted files.  These files specify npm packages to be consolidated into a bundle.
+The package bundle makes it easy to include npm packages as part of your bundles.  This is similar to lib bundles in that it allows common code to be downloaded once and have it 
+used by multiple apps.  A package bundle is created by files named package.js which export a default object.  These files specify npm packages to be consolidated into a bundle.
 The following is an example of a package.bundle file.
 
-```
-{
-  "version": "1.0.0",
-  "modules": ["jquery", "react"]
-}
+```javascript
+module.exports = {
+  version: '1.0.0',
+  modules: [
+    { require: 'jquery' },
+    { require: 'react' }
+  ]
+};
 ```
 
 This file specifies that the jquery and react packages are to be put into a bundle and that bundle will be given a version number of 1.0.0.
 The reason package bundles are versioned apart from the version specified with the registerTask function is because it's likely that package bundles will be updated
 far less frequently than your application code.
 
-You can also specify additional entry files for each package specified.  The code within these files will be executed when the package
-that is associated with it is loaded.  To specify an entry file add a colon (`:`) character at the end of the package name followed 
-by the path to the file that contains the code to execute.  Below is a made up example.
+You can also specify a single entry file for each module specified.  The code within these files will be executed when the package
+that is associated with it is loaded.  To specify an entry file set the init property on the module and specify a value that can be
+resolved using the node require.resolve function.  Below is a made up example.
 
-```
-{
-  "version": "1.0.0",
-  "modules": ["examplePackage:node_modules/examplePackage/dist/load"]
-}
+```javascript
+module.exports = {
+  version: '1.0.0',
+  modules: [
+    { require: 'examplePackage', init: 'examplePackage/dist/load' },
+    { require: 'react' }
+  ]
+};
 ``` 
 
 ### Bundle Manager
 
-After all of your client side code has been bundled you are ready to serve it up in your pages.  To do this you will need to include the resulting bundles in your pages using script tags that will reference them.
-The easiest way to do this is with the BundleManager class included in this package.  You use the BundleManager to create the necessary script tags for the app bundles you have created.
+After all of your client side code has been bundled you are ready to serve it up in your pages.  To do this you will need to include the 
+resulting bundles in your pages using script tags that will reference them.  The easiest way to do this is with the BundleManager class included 
+in this package.  You use the BundleManager to create the necessary script tags for the app bundles you have created.
 Here is an example of using the BundleManager to create script tags for a page associated with the oauth.app.js bundle.
 
-```
+```javascript
 'use strict';
 
 const bundle = require('build-bundle');
 
 const bundler = bundle.createManager({
-  rootBundlePath: 'dist/',
+  inputDir: 'dist/',
+  baseUrlPath: '/dist',
   version: '1.0.1' });
-const tags = bundler.createScriptTags('login/oauth');
+
+const tags = bundler.getScriptTags('login/oauth');
 ```
 
-The resulting tags array would be made up of the following string values in order which can be included in your page.
+The resulting tags array would be made up of the following string values in the following order which can be included in your page.
 
-1. `<script src="/packages/package-1.0.0.js"></script>`
-2. `<script src="/apps/1.0.1/framework/bundle.js"></script>`
-3. `<script src="/apps/1.0.1/login/bundle.js"></script>`
-4. `<script src="/apps/1.0.1/login/oauth/bundle.js"></script>`
-
-## Build HTML Output
-
-In addition to creating bundles you can also generate static html output for your app.js files.
-After all of the bundles have been created for your project, all of the files that have an extension of .html.js will be loaded.  
-It is expected that these modules will export a default function that will be executed to generate static html to write to files.
-
-For example you can generate html files that load your scripts by exporting the following function inside an index.html.js file.
-
-```
-module.exports = function (opts) {
-  return '<html><head>' +
-         opts.bundleManager.createScriptTags(opts.appPath, '/', opts.isMin).join('\n') +
-         '</head></html>';
-};
-```
-
-This will result in `index.html` and and `index.dev.html` files being generated since the name of the file was index.  The index.html file
-will contain minified script tags and the index.dev.html will contain unminified tags.  You can have have any number of modules with an extension
-of .html.js in a folder and all of them will be executed and written out to their own files.
+1. `<script src="/dist/packages/bundle-1.0.0.min.js" defer></script>`
+2. `<script src="/dist/apps/1.0.1/framework/bundle.min.js"></script>`
+3. `<script src="/dist/apps/1.0.1/login/bundle.min.js"></script>`
+4. `<script src="/dist/apps/1.0.1/login/oauth/bundle.min.js"></script>`
 
 ## API
 
-### build-asset.registerTasks(options)
+### `build-asset.registerTasks(options)`
 
-The registerTasks function will register 4 tasks with gulp which are named as follows:
+The registerTasks function will register 3 tasks with gulp which are named as follows:
 
 - 'bundle' - This task will bundle all code.
-- 'bundle-apps' - This task will bundle only the app, lib and framework code.  It will not bundle the defined packages.
-- 'bundle-packages' - This task will only bundle the packages defined.  It will not bundle any of the app, lib or framework code.
-- 'watch-bundle' - This is a long running task that will listen for changes to files.  When a file is changed the necessary code will be rebundled.
+- 'bundleApps' - This task will bundle only the app, lib and framework code.  It will not bundle the packages.
+- 'bundlePackages' - This task will only bundle the packages.  It will not bundle any of the app, lib or framework code.
 
 #### options
-
 Type: `Object`
 
 This parameter is an object that holds the various options to use when registering the tasks.
 
 #### options.inputDir
-
 Type: `String`
 
-The directory that contains all of the code files that will be bundled.  Only files with .js or .jsx extensions will be bundled.
+The directory that contains all of the code files that will be bundled.  Only files with .js extensions will be bundled.
 
 #### options.outputDir
-
 Type: `String`
 
 The directory that bundle files will be output to.
 
 #### options.version
-
 Type: `String`
 
-An optional version number for the bundled code.  This is used with caching schemes so that when the version number is incremented with a new release the new bundles will be downloaded instead of loaded from the browser cache.
+An optional version number for the bundled app, lib, and framework code.  This is used with caching schemes so that when the version number is incremented with a new 
+release the new bundles will be downloaded instead of loaded from the browser cache.
 
 #### options.buildDev
+Type: `Boolean` Default: `true`
 
-Type: `Boolean`
-
-Flag that indicates if development bundles will be created.  Defaults to true.
+Flag that indicates if development bundles will be created.
 
 #### options.buildMin
-
-Type: `Boolean`
+Type: `Boolean` Default: `true`
 
 Flag that indicates if minified bundles will be created.  Defaults to true.
 
-#### options.uglify
-
-Type: `Object`
-
-Options passed to the uglify package that is used to minify the code.  See [uglify-js](https://www.npmjs.com/package/uglify-js) site for option documentation.
-
-#### options.buildHtmlDir
-
-Type: `String`
-
-An alternative base path to load *.html.js files from.  
-This is useful if you are transforming files to some alternative output such as ecma6 to ecma5.  
-If not set then *.html.js files are loaded from the inputDir.
-
 #### options.tasksPrefix
-
 Type: `String`
 
-This is an optional parameter that when set will add a prefix to the names of the tasks that get registered. For example, if tasksPrefix is set to 'hello' then the task that would have been registered with the name 'bundle' will be registered with the name 'hello-bundle' instead.
+This is an optional parameter that when set will add a prefix to the names of the tasks that get registered. For example, if tasksPrefix is set to 'hello' then the task 
+that would have been registered with the name 'bundle' will be registered with the name 'hello-bundle' instead.
 
 #### options.tasksDependencies
-
 Type: `String[]`
 
 Optional array of tasks names that must be completed before these registered tasks runs.
 
-### build-bundle.createManager(options)
+### `build-bundle.createManager(options)`
+Type: `Function`
 
 This function creates a new instance of a BundleManager object and passes the parameters to the constructor.
 
 #### options
-
 Type: `Object`
 
 The configuration options.
 
-#### options.rootBundlePath
-
+#### options.inputDir
 Type: `String`
 
 This is the root path of the output from the bundle task.  It should be the same as the value provided with the options.ouputDir parameter when calling registerTasks.
 
 #### options.version
-
 Type: `String`
 
-The version number of the resulting output from the bundle task.  It should be the same as the value provided with the options.version parameter when calling registerTasks.
+The optional version number of the resulting output from the bundle task.  It should be the same as the value provided with the options.version parameter when calling registerTasks.
 
-### BundleManager
+### `BundleManager`
+Type: `Class`
 
 This class has functionality that makes it easier to use the resulting bundles generated by the bundle tasks.
 
-### BundleManager.isApp(appPath)
+### BundleManager.getScriptTags(appPath, minify)
 
-This function checks to see if there is an app bundle for the given path.  It returns true if there is, false if there isn't.
-
-#### appPath
-
-Type: `String`
-
-The path to the app to check for.
-
-### BundleManager.createScriptTags(appPath, baseUrlPath, isMinified, attr)
-
-This function will create the script tags necessary for the given app to execute in the client browser.
-It returns an array of strings with each array element being html markup for included a script tag.  The order 
+This function will get the script tags necessary for the given app to execute in the client browser.
+It returns an array of strings with each array element being html markup for including a script tag.  The order 
 of the script tags is important and needs to be included in your page in the same order.
 
 #### appPath
-
 Type: `String`
 
-The path to the app that script tags are to be created for.
+The path relative to the inputDir to the app that script tags are for.
 
-#### baseUrlPath
-
-Type: `String`
-
-The is the base path to apply to script tags when generating them.
-
-#### isMinified
-
-Type: `Boolean`  Default: `False`
+#### minify
+Type: `Boolean`  Default: `true`
 
 If true then the minified version of bundles will be used to create the resulting script tags.  If false
 the unminifed versions will be used.
-
-#### attr
-
-Type: `String`
-
-An optional attribute to include in the script tags created.  This should be either the value async or  the value defer as necessary.
-
-### buildOutput(options)
-
-When this function is exported as the default from a file with an extension of .html.js it will be executed as part of the bundle build task.
-The value returned from this function will be written out to file in the corresponding output directory.
-
-#### options
-
-Type: `Object`
-
-The options pass to the function to use as part of building the output.
-
-#### options.bundleManager
-
-Type: `BundleManager`
-
-An instance of BundleManager created using the values provided to the bundle task.
-
-#### options.appPath
-
-Type: `String`
-
-The relative path to the current app.  This can be used with the BundleManager.createScriptTags function.
-
-#### options.isMin
-
-Type: `Boolean`
-
-If true then the function should return output that includes minified resources.  If false then the output doesn't need to be minified.

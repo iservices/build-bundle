@@ -2,700 +2,347 @@
 'use strict';
 
 const gulp = require('gulp');
+const path = require('path');
+const del = require('del');
 const browserify = require('browserify');
-const tsify = require('tsify');
 const minifyify = require('minifyify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
-const glob = require('glob');
-const globStream = require('glob-stream');
-const through = require('through2');
-const path = require('path');
-const fs = require('fs');
-const del = require('del');
-const ps = require('process');
-const BundleManager = require('./bundleManager');
+const fto = require('file-tree-object');
 
-const codeExt = '/*.[jt]s';
-const packagesExt = '/package.bundle';
-const appFileRegEx = /[a-zA-Z0-9_\\-\\.]*\.[aA][pP][pP]\.[jJtT][sS]$/;
-const appFilesExt = '*.app.[jJtT]s';
+const appsPattern = /\.app\.js$/;
+const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
+const frameworkPattern = /^framework[\\\/]/;
 
 /**
- * Bundle the source code found in the given folder.
- *
- * @param {object} opts - Options for bundling.
- * @param {object} opts.input - options provided by configuration.
- * @param {string|vinyl} opts.folder - The folder to create a bundle for.
- * @param {object} opts.filesMap - An optional map object that is used to cache folder contents for re-use in future calls.
- * @param {boolean} opts.minify - When true the resulting bundle will be minified.
- * @param {function} opts.errorHandler - A function that handles any bundling errors that occur.
- * @param {function} opts.done - A function that is called when bundling is completed.
- * @returns {void}
+ * Returns the path property of the given file.
+ * @param {String} file - The file to read the path property from.
+ * @returns {String} The path property of the file.
  */
-function bundle(opts) {
-  let filesMap = opts.filesMap;
-  if (!filesMap) {
-    filesMap = {};
-  }
+function toPath(file) {
+  return file.path;
+}
 
-  const folderPath = path.normalize(opts.folder.path || opts.folder);
-
-  const parentFiles = [];
-  const parentPackages = [];
-  const appFiles = [];
-  let files = [];
+/**
+ * Read in a package object.
+ * @param {String|TreeNode} file - The file to read in the package from.
+ * @returns {Package} The package object that was read in.
+ */
+function readInPackage(file) {
   let pack = null;
-  let currentPath = folderPath;
-
-  // collect and cache files from the top down for framework
-  if (!filesMap[opts.input.frameworkDir]) {
-    const packageFiles = glob.sync(path.normalize(opts.input.frameworkDir + packagesExt), { nodir: true });
-    filesMap[opts.input.frameworkDir] = {
-      files: glob.sync(opts.input.frameworkDir + '/**' + codeExt, { nodir: true }),
-      pack: (packageFiles.length > 0) ? JSON.parse(fs.readFileSync(packageFiles[0], 'utf8')) : { modules: [] }
-    };
+  if (file.path) {
+    pack = require(file.path);
+  } else {
+    pack = require(file);
   }
 
-  if (folderPath === opts.input.frameworkDir) {
-    // we've already collected framework files
-    files = filesMap[opts.input.frameworkDir].files;
-    pack = filesMap[opts.input.frameworkDir].pack;
-  } else if (folderPath.indexOf(opts.input.frameworkDir) === 0) {
-    // folders under the framework folder are bundled up into a single top level
-    // bundle so there is no need to continue.
-    if (opts.done) {
-      opts.done();
+  return pack.default || pack;
+}
+
+/**
+ * Get all of the require values found in packages that are the parent of the given folder.
+ * @param {TreeNode} dir - The folder to get parent require values for.
+ * @param {Boolean} includeDir - If set to true then any package in the dir folder will be included.
+ * @returns {Array} An array of the require values.
+ */
+function getParentPackageRequires(dir, includeDir) {
+  const result = [];
+  const addToResult = function (packModule) { result.push(packModule.require); };
+  let frameworkFlag = false;
+
+  // traverse up the tree
+  let parent = includeDir ? dir : dir.parent;
+  while (parent) {
+    if (parent.getPathFromRoot() === 'framework') {
+      frameworkFlag = true;
     }
-    return;
+    const parentPack = parent.getChildByPath('package.js');
+    if (parentPack) {
+      const parentPackInfo = readInPackage(parentPack);
+      if (parentPackInfo.modules) {
+        parentPackInfo.modules.forEach(addToResult);
+      }
+    }
+    parent = parent.parent;
   }
 
-  // collect and cache files from the bottom up for apps and libraries
-  while (currentPath.length >= opts.input.inputDir.length) {
-    if (currentPath !== opts.input.frameworkDir) {
-      // get code files and packages
-      if (!filesMap[currentPath]) {
-        const packageFiles = glob.sync(path.normalize(currentPath + packagesExt), { nodir: true });
-        filesMap[currentPath] = {
-          files: glob.sync(currentPath + codeExt, { nodir: true }),
-          pack: (packageFiles.length > 0) ? JSON.parse(fs.readFileSync(packageFiles[0], 'utf8')) : { modules: [] }
-        };
-      }
-
-      // sort files in the current folder
-      for (let fileIndex = 0; fileIndex < filesMap[currentPath].files.length; fileIndex++) {
-        const file = filesMap[currentPath].files[fileIndex];
-
-        if (file.match(appFileRegEx)) {
-          // app files
-          if (currentPath !== folderPath) {
-            // if a parent folder has an app file then any code underneath it
-            // doesn't get it's own bundle.
-            if (opts.done) {
-              opts.done();
-            }
-            return;
-          }
-          appFiles.push(file);
-        } else if (currentPath === folderPath) {
-          // non app files
-          files.push(file);
-        } else {
-          // parent files
-          parentFiles.push(file);
+  // exlude packages found in the framework
+  if (!frameworkFlag && dir.getPathFromRoot() !== 'framework') {
+    const frameworkDir = dir.getRoot().getChildByPath('framework');
+    if (frameworkDir) {
+      const pack = frameworkDir.getChildByPath('package.js');
+      if (pack) {
+        const packData = readInPackage(pack);
+        if (packData.modules) {
+          packData.modules.forEach(addToResult);
         }
       }
-
-      // process any packages in folder
-      if (currentPath === folderPath) {
-        pack = filesMap[currentPath].pack;
-      } else {
-        Array.prototype.push.apply(parentPackages, filesMap[currentPath].pack.modules);
-      }
     }
+  }
 
-    const nextPath = path.normalize(currentPath + '/../');
-    if (nextPath === currentPath) {
-      break;
+  return result;
+}
+
+/**
+ * Bundle the given directory into an app.
+ * @param {TreeNode} dir - The directory to bundle into an app.
+ * @param {Object} opts - The options.
+ * @param {Boolean} minify - If true the resulting bundle will be minified.
+ * @param {Function} cb - The callback function to execute when complete.
+ * @returns {void}
+ */
+function bundleApp(dir, opts, minify, cb) {
+  const done = cb || function () {};
+  const outputPath = path.join(opts.input.appsOutputDir, dir.getPathFromRoot());
+  let apps = null;
+  let libs = null;
+  const externals = [];
+  const addToExternals = function (file) { externals.push(file); };
+
+  if (dir === opts.framework.dir) {
+    // if this is the framework folder collect all files underneath it
+    apps = opts.framework.apps;
+    libs = opts.framework.libs;
+  } else if (frameworkPattern.test(dir.getPathFromRoot())) {
+    // bail if we are in a folder under the framework
+    return done();
+  } else {
+    // collect just the files in this folder
+    apps = dir.getFilesByPattern(appsPattern);
+    libs = dir.getFilesByPattern(appsOrPackagePattern, { negate: true });
+    Array.prototype.push.apply(externals, opts.framework.libs);
+  }
+
+  // collect list of files to exclude
+  let parent = dir.parent;
+  while (parent) {
+    // bail if a parent app is found
+    if (parent.getFilesByPattern(appsPattern).length > 0) {
+      return done();
     }
-
-    currentPath = nextPath;
+    // collect list of files
+    parent.files.forEach(addToExternals);
+    parent = parent.parent;
   }
 
-  // always exclude framework files and packages unless we are bundling the framework
-  if (folderPath !== opts.input.frameworkDir) {
-    Array.prototype.push.apply(parentFiles, filesMap[opts.input.frameworkDir].files);
-    Array.prototype.push.apply(parentPackages, filesMap[opts.input.frameworkDir].pack.modules);
+  // don't bundle if there aren't any files
+  if (!apps.length && !libs.length) {
+    return done();
   }
 
-  // create bundles
-  let doneCount = 2;
-  if (opts.excludeApps || (files.length === 0 && appFiles.length === 0)) {
-    doneCount--;
-  }
-  if (opts.excludePackages || !pack || !pack.modules || pack.modules.length === 0) {
-    doneCount--;
-  }
-  if (doneCount === 0) {
-    if (opts.done) {
-      opts.done();
-    }
-    return;
-  }
+  // configure the bundler
+  const bundler = browserify({ debug: true });
+  bundler.plugin(minifyify, {
+    map: 'bundle.min.js.map',
+    output: path.join(outputPath, 'bundle.min.js.map'),
+    minify: minify
+  });
 
-  // file bundle
-  if (!opts.excludeApps && (files.length > 0 || appFiles.length > 0)) {
-    const appsOutputFolder = path.normalize(opts.input.appsOutputDir + folderPath.slice(opts.input.inputDir.length));
-    const fileBry = browserify({ debug: true, extensions: ['.jsx'] });
-    fileBry.plugin(tsify, {
-      module: 'commonjs',
-      target: 'ES5',
-      allowJs: true,
-      sourceMap: true
+  // excluded files and packages
+  bundler.external(externals.map(toPath));
+  bundler.external(getParentPackageRequires(dir, true));
+
+  if (apps.length > 0) {
+    // entry point modules
+    bundler.add(apps.map(toPath));
+  } else {
+    // exported modules
+    libs.forEach(function (file) {
+      bundler.require(file.path, { expose: path.join(opts.input.baseOutputDir, file.getPathFromRoot()) });
     });
-    fileBry.plugin(minifyify, {
-      map: 'bundle.min.js.map',
-      output: path.normalize(appsOutputFolder + '/bundle.min.js.map'),
-      minify: opts.minify,
-      uglify: opts.input.uglify
-    });
-    fileBry.external(parentFiles);
-    fileBry.external(parentPackages.map(function (p) { return p.split(':')[0]; }));
+  }
 
-    if (pack && pack.modules) {
-      fileBry.external(pack.modules.map(function (p) { return p.split(':')[0]; }));
-    }
-
-    if (appFiles.length > 0) {
-      // bundle files for apps
-      fileBry.add(appFiles);
-    } else if (files.length > 0) {
-      // bundle files for libraries
-      files.forEach(function (file) {
-        fileBry.require(file, { expose: opts.input.baseOutputDir + file.slice(opts.input.inputDir.length) });
-      });
-    }
-
-    fileBry.bundle()
-      .on('error', function (err) {
-        doneCount--;
-        if (opts.errorHandler) {
-          opts.errorHandler(err);
-        } else {
-          throw err;
-        }
-
-        if (opts.done && doneCount === 0) {
-          opts.done();
-        }
-      })
-    .pipe(source('bundle' + (opts.minify ? '.min.js' : '.js')))
+  // start bundling
+  bundler.bundle()
+    .on('error', function (err) { done(err); })
+    .pipe(source(minify ? 'bundle.min.js' : 'bundle.js'))
     .pipe(buffer())
-    .pipe(gulp.dest(appsOutputFolder))
-    .on('end', function () {
-      doneCount--;
-      if (opts.done && doneCount === 0) {
-        opts.done();
-      }
-    });
+    .pipe(gulp.dest(outputPath))
+    .on('end', function () { done(); });
+}
+
+/**
+ * Bundle the given directory into a package.
+ * @param {TreeNode} dir - The directory to bundle into a package.
+ * @param {Object} opts - The options.
+ * @param {Boolean} minify - If true the resulting bundle will be minified.
+ * @param {Function} cb - The callback function to execute when complete.
+ * @returns {void}
+ */
+function bundlePackage(dir, opts, minify, cb) {
+  const done = cb || function () {};
+  const outputPath = path.join(opts.input.packagesOutputDir, dir.getPathFromRoot());
+
+  // read in package info
+  const pack = dir.getChildByPath('package.js');
+  if (!pack) {
+    return done();
   }
+  const packData = readInPackage(pack);
+  if (!packData.modules || !packData.modules.length) {
+    return done();
+  }
+  const bundleName = 'bundle' + (packData.version ? '-' + packData.version : '') + '.js';
+  const bundleNameMin = 'bundle' + (packData.version ? '-' + packData.version : '') + '.min.js';
 
-  // package bundle
-  if (!opts.excludePackages && (pack && pack.modules && pack.modules.length > 0)) {
-    const packagesOutputFolder = path.normalize(opts.input.packagesOutputDir + folderPath.slice(opts.input.inputDir.length));
-    const packagesOutputName = pack.version ? 'package-' + pack.version : 'package';
-    const packageBry = browserify({
-      debug: opts.minify,
-      noParse: opts.packages
-    });
+  // configure the bundler
+  const bundler = browserify({ debug: true });
+  bundler.plugin(minifyify, {
+    map: bundleNameMin + '.map',
+    output: path.join(outputPath, bundleNameMin + '.map'),
+    minify: minify
+  });
 
-    packageBry.plugin(minifyify, {
-      map: packagesOutputName + '.min.js.map',
-      output: path.normalize(packagesOutputFolder + '/' + packagesOutputName + '.min.js.map'),
-      minify: opts.minify,
-      uglify: opts.input.uglify
-    });
+  // exclude parent packages
+  bundler.external(getParentPackageRequires(dir));
 
-    packageBry.external(parentPackages.map(function (p) { return p.split(':')[0]; }));
+  // add packages
+  packData.modules.forEach(function (packModule) {
+    bundler.require(packModule.require);
+    if (packModule.init) {
+      bundler.add(require.resolve(packModule.init));
+    }
+  });
 
-    pack.modules.forEach(function (pck) {
-      const parts = pck.split(':');
-      packageBry.require(parts[0]);
-
-      // add entry points if any are specified
-      if (parts.length > 1) {
-        packageBry.add(parts.slice(1));
-      }
-    });
-
-    packageBry.bundle()
-      .on('error', function (err) {
-        doneCount--;
-        if (opts.errorHandler) {
-          opts.errorHandler(err);
-        } else {
-          throw err;
-        }
-
-        if (opts.done && doneCount === 0) {
-          opts.done();
-        }
-      })
-    .pipe(source(packagesOutputName + (opts.minify ? '.min.js' : '.js')))
+  // start bundling
+  bundler.bundle()
+    .on('error', function (err) { done(err); })
+    .pipe(source(minify ? bundleNameMin : bundleName))
     .pipe(buffer())
-    .pipe(gulp.dest(packagesOutputFolder))
-    .on('end', function () {
-      doneCount--;
-      if (opts.done && doneCount === 0) {
-        opts.done();
-      }
-    });
-  }
+    .pipe(gulp.dest(outputPath))
+    .on('end', function () { done(); });
 }
 
 /**
- * Stream that bundles folders.
- *
- * @param {object} opts - Options for the stream.
- * @param {object} opts.input - Options provided through configuration.
- * @param {boolean} opts.minify - If set to true the bundles will be minified.
- * @param {object} opts.filesMap - If set to an object files will be cached here for performance.
- * @returns {stream} A stream that bundles code.
+ * Bundle either apps or packages.
+ * @param {Function} fn - The bundle function to execute.  Either bundleApps or bundlePackages.
+ * @param {TreeNode} tree - The tree to bundle.
+ * @param {Object} opts - Options to pass to the bundle functions.
+ * @param {Function} cb - The call back function to execute when done.
+ * @returns {void}
  */
-function bundleStream(opts) {
-  const options = (opts || { minify: false, filesMap: {} });
-  return through({ objectMode: true }, function (data, encoding, done) {
-    if ((!options.input.buildDev && !options.minify) || (!options.input.buildMin && options.minify)) {
-      this.push(data);
+function bundle(fn, tree, opts, cb) {
+  const done = cb || function () {};
+
+  // determine the number of directories that will be processed
+  let pending = 0;
+  let pendNumber = 0;
+  if (opts.input.buildDev) {
+    pendNumber++;
+  }
+  if (opts.input.buildMin) {
+    pendNumber++;
+  }
+  tree.forEachDirectory(function () { pending += pendNumber; }, { recurse: true });
+  if (!pending) {
+    return done;
+  }
+
+  // define the function that is called after each app is bundled
+  const bundleDone = function (err) {
+    if (err) {
+      return done(err);
+    }
+    if (!--pending) {
       done();
-      return;
     }
-    const self = this;
-    bundle({
-      input: opts.input,
-      folder: data,
-      filesMap: options.filesMap,
-      minify: options.minify,
-      excludeApps: opts.excludeApps,
-      excludePackages: opts.excludePackages,
-      errorHandler: options.errorHandler,
-      done: function () {
-        self.push(data);
-        done();
-      }
-    });
-  });
-}
+  };
 
-/**
- * Process the given app.
- * @param {object} opts - The options for the function.
- * @param {object} opts.input - The input for the build tasks.
- * @param {string} opts.file - The file that is the app to process.
- * @param {BundleManager} opts.bundleManager - The bundle manager to pass to the function for processing the app.
- * @returns {void}
- */
-function processHtml(opts) {
-  delete require.cache[require.resolve(opts.file)];
-  let htmlFunc = require(opts.file);
-  if (htmlFunc && !(typeof htmlFunc === 'function')) {
-    htmlFunc = htmlFunc.default;
-  }
-  if (!htmlFunc || !(typeof htmlFunc === 'function')) {
-    throw new Error('The given module is not defined as a function to generate html: ' + opts.file);
-  }
-  const relativePath = '/' + path.dirname(opts.file).slice(opts.input.buildHtmlDir.length) + '/';
-  const outputFolder = path.normalize(opts.input.appsOutputDir + relativePath);
-  const fileName = path.basename(opts.file, '.html.js');
-  if (htmlFunc) {
-    let result = htmlFunc({
-      bundleManager: opts.bundleManager,
-      appPath: relativePath,
-      isMin: true });
-    if (result) {
-      fs.writeFileSync(outputFolder + fileName + '.html', result);
-    }
-    result = htmlFunc({
-      bundleManager: opts.bundleManager,
-      appPath: relativePath,
-      isMin: false });
-    if (result) {
-      fs.writeFileSync(outputFolder + fileName + '.dev.html', result);
-    }
-  }
-}
-
-/**
- * Stream that bundles folders.
- *
- * @param {object} opts - Options for the stream.
- * @param {object} opts.input - Options provided through configuration.
- * @param {boolean} opts.minify - If set to true the bundles will be minified.
- * @param {object} opts.filesMap - If set to an object files will be cached here for performance.
- * @returns {stream} A stream that bundles code.
- */
-function processHtmlStream(opts) {
-  return through({ objectMode: true }, function (data, encoding, done) {
-    try {
-      const self = this;
-      processHtml({
-        input: opts.input,
-        file: data.path,
-        bundleManager: opts.bundleManager
-      });
-      self.push(data);
-      done();
-    } catch (error) {
-      done(error);
-    }
-  });
-}
-
-/**
- * Write out a map of what folders have a bundle in them which can
- * be used to build script tags.
- *
- * @param {object} opts - Options.
- * @param {object} opts.filesMap - An object that maps folder paths to the files that are contained within them.
- * @param {object} opts.existingManifest - If set the new manifest will be merged with this manifest set here.
- * @param {object} opts.input - The configuration input.
- * @returns {void}
- */
-function editManifest(opts) {
-  const resultManifest = opts.existingManifest || {};
-  const basePathSize = opts.input.inputDir.length - 1;
-  const appSearch = function (item) { return item.match(appFileRegEx) !== null; };
-
-  for (const prop in opts.filesMap) {
-    if (opts.filesMap.hasOwnProperty(prop)) {
-      resultManifest[prop.toLowerCase().slice(basePathSize)] = {
-        files: (opts.filesMap[prop].files.length > 0),
-        isApp: (opts.filesMap[prop].files.findIndex(appSearch) !== -1),
-        pack: {
-          version: opts.filesMap[prop].pack.version,
-          modules: (opts.filesMap[prop].pack.modules && opts.filesMap[prop].pack.modules.length > 0)
-        }
-      };
-    }
+  // collect framework fies as they will be used repeatedly
+  const fwk = {
+    apps: [],
+    libs: [],
+    dir: tree.getChildByPath('framework')
+  };
+  if (fwk.dir) {
+    fwk.dir.forEachDirectory(function (folder) {
+      Array.prototype.push.apply(fwk.apps, folder.getFilesByPattern(appsPattern));
+      Array.prototype.push.apply(fwk.libs, folder.getFilesByPattern(appsOrPackagePattern, { negate: true }));
+    }, { recurse: true });
   }
 
-  try {
-    fs.writeFileSync(opts.input.outputDir + 'manifest.json', JSON.stringify(resultManifest));
-  } catch (err) {
-    if (err.code !== 'ENOENT') {
-      throw err;
+  // enumerate through each directory and kick off bundle function
+  tree.forEachDirectory(function (dir) {
+    if (opts.input.buildMin) {
+      fn(dir, { input: opts.input, framework: fwk }, true, bundleDone);
     }
-  }
-}
-
-/**
- * Write out a map of what folders have a bundle in them which can
- * be used to build script tags.
- *
- * @param {object} opts - Options.
- * @param {object} opts.filesMap - An object that maps folder paths to the files that are contained within them.
- * @param {object} opts.input - The configuration input.
- * @returns {void}
- */
-function writeManifest(opts) {
-  editManifest(opts);
-}
-
-/**
- * Update map of what folders have a bundle in them which can
- * be used to build script tags.
- *
- * @param {object} opts - Options.
- * @param {object} opts.filesMap An object that maps folder paths to the files that are contained within them.
- * @param {object} opts.input - The configuration input.
- * @returns {void}
- */
-function updateManifest(opts) {
-  let existingManifest = null;
-  try {
-    existingManifest = JSON.parse(fs.readFileSync(opts.input.outputDir + 'manifest.json', 'utf8'));
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      existingManifest = {};
-    } else {
-      throw err;
+    if (opts.input.buildDev) {
+      fn(dir, { input: opts.input, framework: fwk }, false, bundleDone);
     }
-  }
-
-  editManifest({
-    filesMap: opts.filesMap,
-    existingManifest: existingManifest,
-    input: opts.input
-  });
-}
-
-/**
-  * This function is used to notify developers of an error that occured
-  * as a result of a changed file.
-  *
-  * @param {Error} err - The error to notify the user about.
-  * @param {string} title - The title for the notification window.
-  * @param {string} message - The message to display in the notification window.
-  * @returns {void}
-  */
-function notify(err, title, message) {
-  require('node-notifier').notify({
-    title: title,
-    message: message
-  });
-
-  if (err) {
-    if (err.message) {
-      console.log(err.message);
-    } else {
-      console.log(err);
-    }
-  }
+  }, { recurse: true });
 }
 
 /**
  * Register tasks using the given options.
  *
- * @param {object} opts - Options for bundling.
- * @param {string} opts.inputDir - The folder to bundle app code from.
- * @param {string} opts.outputDir - The output for the bundled code.
- * @param {string} [opts.version] - An optional version number to output apps code into within the outputDir.
- * @param {boolean} [opts.buildDev] - Flag that indicates if development bundles will be created.  Defaults to true.
- * @param {boolean} [opts.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
- * @param {object} [opts.uglify] - Options passed to the uglify package.  See the uglify docs for option definitions.
- * @param {string} [opts.buildHtmlDir] - An alternative base path to load *.html.js files from.  This is useful if you are transforming
- *                                       files to some alternative output such as ecma6 to ecma5.  If not set then *.html.js files are loaded
- *                                       from the inputDir.
- * @param {string} [opts.tasksPrefix] - Prefix to prepend to registered tasks.
- * @param {string[]} [opts.tasksDependencies] - Optional array of tasks names that must be completed before these registered tasks runs.
+ * @param {Object} options - Options for bundling.
+ * @param {String} options.inputDir - The folder to bundle app code from.
+ * @param {String} options.outputDir - The output for the bundled code.
+ * @param {String} [options.version] - An optional version number to output apps code into within the outputDir.
+ * @param {Boolean} [options.buildDev] - Flag that indicates if unminified bundles will be created.  Defaults to true.
+ * @param {Boolean} [options.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
+ * @param {String} [options.tasksPrefix] - Prefix to prepend to registered tasks.
+ * @param {String[]} [options.tasksDependencies] - Optional array of tasks names that must be completed before these registered tasks runs.
  * @returns {void}
  */
-module.exports = (opts) => {
+module.exports = (options) => {
+  const opts = options || {};
   const input = {
-    glob: path.normalize(opts.inputDir + '/**/*/').replace(/\\/g, '/'),
+    inputDir: path.resolve(opts.inputDir),
+    outputDir: path.resolve(opts.outputDir),
     version: opts.version,
-    name: opts.name,
-    uglify: opts.uglify || {},
-    buildOutput: opts.buildOutput,
-    tasksDependencies: opts.tasksDependencies || []
+    buildDev: (opts.buildDev === undefined) ? true : opts.buildDev,
+    buildMin: (opts.buildMin === undefined) ? true : opts.buildMin,
+    tasksDependencies: opts.tasksDependencies || [],
+    tasksPrefix: (opts.tasksPrefix === undefined) ? '' : opts.tasksPrefix + '-'
   };
 
-  if (opts.buildDev !== undefined) {
-    input.buildDev = opts.buildDev;
-  } else {
-    input.buildDev = true;
-  }
-
-  if (opts.buildMin !== undefined) {
-    input.buildMin = opts.buildMin;
-  } else {
-    input.buildMin = true;
-  }
-
-  if (!path.isAbsolute(opts.inputDir)) {
-    input.inputDir = path.normalize(ps.cwd() + '/' + opts.inputDir);
-  } else {
-    input.inputDir = path.normalize(opts.inputDir + '/');
-  }
-
-  if (!path.isAbsolute(opts.outputDir)) {
-    input.outputDir = path.normalize(ps.cwd() + '/' + opts.outputDir);
-  } else {
-    input.outputDir = path.normalize(opts.outputDir + '/');
-  }
-
-  input.appsOutputDir = path.normalize(input.outputDir + 'apps/');
-
+  input.appsOutputDir = path.join(input.outputDir, 'apps');
   if (opts.version) {
-    input.appsOutputDir = path.normalize(input.appsOutputDir + opts.version + '/');
+    input.appsOutputDir = path.join(input.appsOutputDir, opts.version);
   }
 
-  input.packagesOutputDir = path.normalize(input.outputDir + 'packages/');
-  input.frameworkDir = path.normalize(input.inputDir + 'framework/');
-  input.compileOutputDir = path.normalize(input.outputDir + 'temp/');
-
-  if (opts.tasksPrefix) {
-    input.tasksPrefix = opts.tasksPrefix + '-';
-  } else {
-    input.tasksPrefix = '';
-  }
-
+  input.packagesOutputDir = path.join(input.outputDir, 'packages');
+  input.frameworkDir = path.join(input.inputDir, 'framework');
   input.baseOutputDir = input.inputDir.slice(process.cwd().length);
 
-  if (opts.buildHtmlDir) {
-    if (!path.isAbsolute(opts.buildHtmlDir)) {
-      input.buildHtmlDir = path.normalize(ps.cwd() + '/' + opts.buildHtmlDir);
-    } else {
-      input.buildHtmlDir = path.normalize(opts.buildHtmlDir + '/');
-    }
-  } else {
-    input.buildHtmlDir = input.inputDir;
-  }
-
-  /*
-   * Compile the code that will be bundled.
+  /**
+   * Bundle just the apps.
    */
-  gulp.task(input.tasksPrefix + 'bundleCompile', input.tasksDependencies, function () {
-  });
-
-  /*
-   * Browserify all code.
-   */
-  gulp.task(input.tasksPrefix + 'bundleAll', [input.tasksPrefix + 'bundleCompile'], function () {
+  gulp.task(input.tasksPrefix + 'bundleApps', input.tasksDependencies, function (done) {
+    // clear out any previous bundles
     del.sync(input.appsOutputDir);
-    del.sync(input.packagesOutputDir);
-    del.sync(path.normalize(input.outputDir + '/manifest.json'));
-    const filesMap = {};
-    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
-      .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap }))
-      .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap }))
-      .on('end', () => {
-        writeManifest({ input: input, filesMap: filesMap });
+
+    // create tree of directories and bundle directories
+    fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+      .then(function (tree) {
+        bundle(bundleApp, tree, { input: input }, done);
+      })
+      .catch(function (err) {
+        done(err);
       });
   });
 
   /**
-   * Browserify just the apps.
+   * Bundle just the packages.
    */
-  gulp.task(input.tasksPrefix + 'bundle-apps', [input.tasksPrefix + 'bundleCompile'], function () {
+  gulp.task(input.tasksPrefix + 'bundlePackages', input.tasksDependencies, function (done) {
+    // clear out any previous bundles
     del.sync(input.appsOutputDir);
-    del.sync(path.normalize(input.outputDir + '/manifest.json'));
-    const filesMap = {};
-    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
-      .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, excludeApps: false, excludePackages: true }))
-      .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, excludeApps: false, excludePackages: true }))
-      .on('end', () => {
-        writeManifest({ input: input, filesMap: filesMap });
+
+    // create tree of directories and bundle directories
+    fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+      .then(function (tree) {
+        bundle(bundlePackage, tree, { input: input }, done);
+      })
+      .catch(function (err) {
+        done(err);
       });
   });
 
   /**
-   * Browserify just the packages.
+   * Bundle both apps and packages.
    */
-  gulp.task(input.tasksPrefix + 'bundle-packages', [input.tasksPrefix + 'bundleCompile'], function () {
-    del.sync(input.packagesOutputDir);
-    del.sync(path.normalize(input.outputDir + '/manifest.json'));
-    const filesMap = {};
-    return globStream.create([input.inputDir.replace(/\\/g, '/'), input.glob], { read: false })
-      .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, excludeApps: true, excludePackages: false }))
-      .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, excludeApps: true, excludePackages: false }))
-      .on('end', () => {
-        writeManifest({ input: input, filesMap: filesMap });
-      });
-  });
-
-  /*
-   * Process apps.
-   */
-  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleAll'], function () {
-    const bundler = new BundleManager({
-      rootBundlePath: input.outputDir,
-      version: input.version,
-      name: input.name
-    });
-    return globStream.create(input.buildHtmlDir + '**/*.html.js', { read: false })
-      .pipe(processHtmlStream({ input: input, bundleManager: bundler }));
-  });
-
-  /*
-   * Watch for changes to app files so we can rebundle on the fly.
-   */
-  gulp.task(input.tasksPrefix + 'watch-bundle', function () {
-    const watch = require('gulp-watch');
-    watch(input.inputDir + '**' + codeExt, function (file) {
-      console.log('watch bundle: ' + file.path + ' event: ' + file.event);
-
-      // determine the folder that needs to be bundled
-      let isAppPath = false;
-      let isFramework = false;
-      const isEdit = (file.event === 'change');
-      const isPackage = (path.basename(file.path) === 'package.bundle');
-      let targetPath = path.normalize(file.path + '/../');
-
-      if (targetPath.indexOf(input.frameworkDir) === 0) {
-        targetPath = input.frameworkDir;
-        isFramework = true;
-      } else {
-        let currentPath = targetPath;
-        while (currentPath !== input.inputDir && currentPath.length >= input.inputDir.length) {
-          const appFiles = glob.sync(currentPath + appFilesExt, { nodir: true });
-          if (appFiles.length > 0) {
-            targetPath = currentPath;
-            isAppPath = true;
-            break;
-          }
-
-          const nextPath = path.normalize(currentPath + '/../');
-          if (nextPath === currentPath) {
-            break;
-          }
-
-          currentPath = nextPath;
-        }
-      }
-
-      // report errors that occur when bundling
-      let errorReported = false;
-      const errorHandler = function (err) {
-        if (errorReported) {
-          return;
-        }
-
-        errorReported = true;
-        notify(err, 'Bundle Error', 'See console for details.');
-      };
-
-      const filesMap = {};
-      let streamBundle = null;
-
-      if (!isPackage && (isAppPath || isEdit)) {
-        // simple bundle conditions
-        streamBundle = globStream.create([targetPath], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
-          .on('end', () => {
-            updateManifest({ input: input, filesMap: filesMap });
-          });
-      } else if (isFramework) {
-        // framework add/delete requires entire system rebundle
-        streamBundle = globStream.create([input.inputDir, input.glob], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
-          .on('end', () => {
-            updateManifest({ input: input, filesMap: filesMap });
-          });
-      } else {
-        // bundle from the target directory down
-        streamBundle = globStream.create([targetPath, targetPath + '/**/*/'], { read: false })
-          .pipe(bundleStream({ input: input, minify: false, filesMap: filesMap, errorHandler: errorHandler }))
-          .pipe(bundleStream({ input: input, minify: true, filesMap: filesMap, errorHandler: errorHandler }))
-          .on('end', () => {
-            updateManifest({ input: input, filesMap: filesMap });
-          });
-      }
-
-      streamBundle.on('readable', () => {
-        while (streamBundle.read() !== null) {
-          // process the entire bundle stream
-        }
-      }).on('end', () => {
-        // process apps after bundle updates are done
-        const bundler = new BundleManager({
-          rootBundlePath: input.outputDir,
-          version: input.version,
-          name: input.name
-        });
-
-        const streamApp = globStream.create(input.buildHtmlDir + '**/*.html.js', { read: false })
-          .pipe(processHtmlStream({ input: input, bundleManager: bundler }))
-          .on('error', errorHandler);
-
-        streamApp.on('readable', () => {
-          while (streamApp.read() !== null) {
-            // process the entire app stream
-          }
-        });
-      });
-    });
+  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleApps', input.tasksPrefix + 'bundlePackages'], function () {
   });
 };

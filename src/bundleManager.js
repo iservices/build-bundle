@@ -1,170 +1,185 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
+const fto = require('file-tree-object');
 
-const slash = path.normalize('/');
+const appBundleDevName = 'bundle.js';
+const appBundleMinName = 'bundle.min.js';
+const packageBundleDevPattern = /bundle(?!.*\.min\.js$).*\.js$/;
+const packageBundleMinPattern = /bundle.*\.min\.js$/;
 
 /**
  * This object can be used to manage bundles that have been created through the registered tasks.
  *
  * @constructor
  * @param {Object} opts - The configuration object.
- * @param {string} opts.rootBundlePath - The root path to the generated bundles.  This should match the path outputDir
- *                                       value used with the bundle tasks.
+ * @param {string} opts.inputDir - The root path to the generated bundles.  This should match the outputDir
+ *                                 value used with the bundle task.
+ * @param {String} opts.baseUrlPath - The base path prepended to the script urls.
  * @param {string} [opts.version] - Optional version number.  This should be the same value that was provided to the registerTasks function.
  */
 const BundleManager = function (opts) {
-  this.rootBundlePath = path.normalize(opts.rootBundlePath + '/');
-  this.version = opts.version;
+  this.inputDir = path.join(opts.inputDir);
+  this.baseUrlPath = opts.baseUrlPath || '/';
+  this.version = opts.version || '';
 
-  try {
-    this.manifest = JSON.parse(fs.readFileSync(path.normalize(this.rootBundlePath + '/manifest.json'), 'utf8'));
-  } catch (err) {
-    this.manifest = null;
+  this.reset();
+};
+
+/**
+ * Format a script tag.
+ * @param {String} fileType - The type of script.  Either 'apps' or 'packages'.
+ * @param {TreeNode} file - The file to create a script tag for.
+ * @returns {String} The script tag.
+ */
+BundleManager.prototype.formatScriptTag = function (fileType, file) {
+  return '<script src="' +
+         path.join(this.baseUrlPath,
+                   fileType,
+                   (fileType === 'packages' ? '' : this.version),
+                   file.getPathFromRoot())
+          .replace(/\\/g, '/') + '" defer></script>';
+};
+
+/**
+ * Build a single set of script tags.
+ * @param {TreeNode} dir - The app directory to create a tag set for.
+ * @param {TreeNode} packDir - The package directory that corresponds to the given dir.
+ * @param {Stirng} appBundleName - The name of the app bundle.
+ * @param {String} packageBundleName - The name of the package bundle.
+ * @param {Array} result - The array to add the resulting script tags to.
+ * @returns {void}
+ */
+BundleManager.prototype.buildScriptTag = function (dir, packDir, appBundleName, result) {
+  // add app
+  const app = dir.getByPath(appBundleName);
+  if (app) {
+    result.unshift(this.formatScriptTag('apps', app));
+  }
+  // add package
+  if (packDir) {
+    const packFiles = packDir.getFilesByPattern((appBundleName === appBundleDevName) ? packageBundleDevPattern : packageBundleMinPattern);
+    if (packFiles.length > 0) {
+      result.unshift(this.formatScriptTag('packages', packFiles[0]));
+    }
   }
 };
 
 /**
- * Create a script tag using the given text.
- *
- * @param {string} filePath - The file path for the script tag.
- * @param {string} fileName - The file name for the script tag.  The extension needs to be ommitted as the function sets it.
- * @param {boolean} isMinified - Identifies if the minified version of the file should be used.
- * @param {string} [attr] - Optional attribute to include in the script tag such as async or defer.
- * @returns {string} The formatted script tag.
+ * Build all script tags for the given app.
+ * @param {TreeNode} appsDir - The root apps directory.
+ * @param {TreeNode} packagesDir - The root packages directory.
+ * @param {TreeNode} dir - The app to create tags for.
+ * @param {Boolean} minify - If true create minified script tags.
+ * @param {Array} result - The array to add the resulting script tags to.
+ * @returns {void}
  */
-function formatScriptTag(filePath, fileName, isMinified, attr) {
-  const attrText = attr ? ' ' + attr : '';
-  return '<script src="' + (filePath + (isMinified ? fileName + '.min.js' : fileName + '.js')).replace(/\\/g, '/') + '"' + attrText + '></script>';
-}
-
-/**
- * Turn the given data object into script tags.
- *
- * @param {string} baseUrlPath - The base url path for script tags.
- * @param {string} filePath - The path to create script tags for.
- * @param {object} data - The object to turn into script tags.
- * @param {boolean} data.files - Indicates if there is a bundle for files.
- * @param {object} data.pack - Package data.
- * @param {string} data.pack.version - Optional version number for the package.
- * @param {boolean} data.pack.modules - Indicates if there is a bunlde for a package.
- * @param {string} [version] - Optional version number to add to app bundle paths.
- * @param {boolean} isMinified - Indicates if the minified version of files should be used.
- * @param {string} [attr] - Optional attribute to include in the script tag such as async or defer.
- * @returns {string[]} - The tags that were parsed.
- */
-function parseScriptTags(baseUrlPath, filePath, data, version, isMinified, attr) {
-  const result = [];
-  if (!data) {
-    return result;
+BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, minify, result) {
+  if (!dir) {
+    return;
   }
 
-  if (data.pack && data.pack.modules) {
-    if (data.pack.version) {
-      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package-' + data.pack.version, isMinified, attr));
-    } else {
-      result.push(formatScriptTag(baseUrlPath + 'packages' + filePath, 'package', isMinified, attr));
-    }
-  }
+  const isRoot = (dir === appsDir);
 
-  if (data.files) {
-    let appPath = baseUrlPath + 'apps';
-    if (version) {
-      appPath += '/' + version;
-    }
-
-    result.push(formatScriptTag(appPath + filePath, 'bundle', isMinified, attr));
-  }
-
-  return result;
-}
-
-/**
- * Creates the script tags that are required for the given app path.
- *
- * @param {string} appPath - The path to the app to create script tags for.  This path needs to be relative to the rootBundlePath.
- * @param {string} [baseUrlPath] - The base url path for all scripts served up.  Defaults to /.
- * @param {boolean} [isMinified] - If true the minified version of scripts tags are returned.  The default is false.
- * @param {string} [attr] - An optional attribute to include with the tags such as async or defer.
- * @returns {script[]} - The script tags for the given app path.
- */
-BundleManager.prototype.createScriptTags = function (appPath, baseUrlPath, isMinified, attr) {
-  const result = [];
-
-  let baseUrl = baseUrlPath;
-  if (baseUrlPath) {
-    if (baseUrlPath.length > 0 && baseUrlPath.charAt(baseUrlPath.length - 1) !== '/') {
-      baseUrl = baseUrlPath + '/';
-    }
-  } else {
-    baseUrl = '/';
-  }
-
-  if (this.manifest) {
-    // root level tags
-    Array.prototype.push.apply(result, parseScriptTags(
-      baseUrl,
-      path.normalize('/'),
-      this.manifest[path.normalize('/')],
-      this.version,
-      isMinified,
-      attr));
-
-    // framework tags
-    Array.prototype.push.apply(result, parseScriptTags(
-      baseUrl,
-      path.normalize('/framework/'),
-      this.manifest[path.normalize('/framework/')],
-      this.version,
-      isMinified,
-      attr));
-
-    const tags = [];
-    let currentPath = path.normalize('/' + appPath + '/').toLowerCase();
-
-    // all other tags
-    for (;;) {
-      if (currentPath === slash) {
-        break;
-      }
-
-      Array.prototype.unshift.apply(tags, parseScriptTags(
-        baseUrl,
-        currentPath,
-        this.manifest[currentPath],
-        this.version,
-        isMinified,
-        attr));
-
-      currentPath = path.normalize(currentPath + '/..');
-      if (currentPath === '.' || currentPath === slash) {
-        currentPath = slash;
+  // add in framework just before root bundles
+  if (isRoot) {
+    const appFwkDir = dir.getByPath('framework');
+    const packageFwkDir = packagesDir ? packagesDir.getByPath('framework') : null;
+    if (appFwkDir) {
+      if (minify) {
+        this.buildScriptTag(appFwkDir, packageFwkDir, appBundleMinName, result);
       } else {
-        currentPath = currentPath + slash;
+        this.buildScriptTag(appFwkDir, packageFwkDir, appBundleDevName, result);
       }
-    }
-
-    if (tags.length > 0) {
-      Array.prototype.push.apply(result, tags);
     }
   }
 
-  return result;
+  // get corresponding package directory
+  let packDir = null;
+  if (isRoot) {
+    packDir = packagesDir;
+  } else {
+    packDir = packagesDir ? packagesDir.getByPath(dir.getPathFromRoot()) : null;
+  }
+
+  // add in bundles
+  if (minify) {
+    this.buildScriptTag(dir, packDir, appBundleMinName, result);
+  } else {
+    this.buildScriptTag(dir, packDir, appBundleDevName, result);
+  }
+
+  // recurse
+  if (!isRoot) {
+    this.buildScriptTags(appsDir, packagesDir, dir.parent, minify, result);
+  }
 };
 
 /**
- * Check to see if the given path is an app or not.
- *
- * @param {String} appPath - The app path to check.
- * @returns {Boolean} If the given app path is in fact an app, true will be returned, otherwise false will be returned.
+ * Read in the files that make up the bundles.
+ * @returns {void}
  */
-BundleManager.prototype.isApp = function (appPath) {
-  const normPath = path.normalize('/' + appPath + '/').toLowerCase();
-  if (this.manifest && this.manifest[normPath]) {
-    return this.manifest[normPath].isApp;
+BundleManager.prototype.reset = function () {
+  this.manifestDev = {};
+  this.manifestMin = {};
+  const tree = fto.createTreeSync(this.inputDir);
+
+  // get apps and packages directories
+  const appsDir = tree.getByPath(path.join('apps', this.version));
+  if (!appsDir) {
+    return;
   }
-  return false;
+  const packagesDir = tree.getByPath('packages');
+
+  // make directories roots
+  appsDir.parent = null;
+  if (packagesDir) {
+    packagesDir.parent = null;
+  }
+
+  // loop through all of the apps and build manifest
+  appsDir.forEachDirectory(function (dir) {
+    // bail if this is a lib bundle
+    if (dir.directories.length) {
+      return;
+    }
+
+    // bail if this is the framework
+    if (dir.getPathFromRoot() === path.join(this.version, 'framework')) {
+      return;
+    }
+
+    // dev tags
+    const scriptsDev = [];
+    this.buildScriptTags(appsDir, packagesDir, dir, false, scriptsDev);
+    if (scriptsDev.length) {
+      this.manifestDev[dir.getPathFromRoot().toLowerCase() + path.sep] = scriptsDev;
+    }
+
+    // min tags
+    const scriptsMin = [];
+    this.buildScriptTags(appsDir, packagesDir, dir, true, scriptsMin);
+    if (scriptsMin.length) {
+      this.manifestMin[dir.getPathFromRoot().toLowerCase() + path.sep] = scriptsMin;
+    }
+  }.bind(this), { recurse: true });
+};
+
+/**
+ * Get the script tags for the given app path.
+ * @param {String} appPath - The path for the app to get script tags for.
+ * @param {minify} minify - When false, unminified script tags are returned.  Default is true.
+ * @returns {Array} The script tags for the app or undefined if there isn't an app with the given path.
+ */
+BundleManager.prototype.getScriptTags = function (appPath, minify) {
+  let normPath = path.join(appPath, '/').toLowerCase();
+  if (normPath.charAt(0) === path.sep) {
+    normPath = normPath.slice(1);
+  }
+  if (minify || minify === undefined) {
+    return this.manifestMin[normPath];
+  }
+  return this.manifestDev[normPath];
 };
 
 module.exports = BundleManager;
