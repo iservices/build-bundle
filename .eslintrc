@@ -2,6 +2,7 @@
 // Copy this file, and add rule overrides as needed.
 {
   "extends": "iservices",
+  "parser": "babel-eslint",
   "rules": {
     "strict": 0
   }

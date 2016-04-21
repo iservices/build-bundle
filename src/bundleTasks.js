@@ -105,7 +105,8 @@ function bundleApp(dir, opts, minify, cb) {
     libs = opts.framework.libs;
   } else if (frameworkPattern.test(dir.getPathFromRoot())) {
     // bail if we are in a folder under the framework
-    return done();
+    done();
+    return;
   } else {
     // collect just the files in this folder
     apps = dir.getFilesByPattern(appsPattern);
@@ -113,12 +114,27 @@ function bundleApp(dir, opts, minify, cb) {
     Array.prototype.push.apply(externals, opts.framework.libs);
   }
 
+  // check for any apps defined in a package.js file
+  const packageFile = dir.getByPath('package.js');
+  if (packageFile) {
+    const packageData = require(packageFile.path);
+    if (packageData.app) {
+      const appPaths = Array.isArray(packageData.app) ? packageData.app : [packageData.app];
+      appPaths.forEach(function (appPath) {
+        apps.push({
+          path: path.resolve(dir.path, appPath)
+        });
+      });
+    }
+  }
+
   // collect list of files to exclude
   let parent = dir.parent;
   while (parent) {
     // bail if a parent app is found
     if (parent.getFilesByPattern(appsPattern).length > 0) {
-      return done();
+      done();
+      return;
     }
     // collect list of files
     parent.files.forEach(addToExternals);
@@ -127,7 +143,8 @@ function bundleApp(dir, opts, minify, cb) {
 
   // don't bundle if there aren't any files
   if (!apps.length && !libs.length) {
-    return done();
+    done();
+    return;
   }
 
   // configure the bundler
@@ -176,11 +193,13 @@ function bundlePackage(dir, opts, minify, cb) {
   // read in package info
   const pack = dir.getChildByPath('package.js');
   if (!pack) {
-    return done();
+    done();
+    return;
   }
   const packData = readInPackage(pack);
   if (!packData.modules || !packData.modules.length) {
-    return done();
+    done();
+    return;
   }
   const bundleName = 'bundle' + (packData.version ? '-' + packData.version : '') + '.js';
   const bundleNameMin = 'bundle' + (packData.version ? '-' + packData.version : '') + '.min.js';
@@ -235,13 +254,15 @@ function bundle(fn, tree, opts, cb) {
   }
   tree.forEachDirectory(function () { pending += pendNumber; }, { recurse: true });
   if (!pending) {
-    return done;
+    done();
+    return;
   }
 
   // define the function that is called after each app is bundled
   const bundleDone = function (err) {
     if (err) {
-      return done(err);
+      done(err);
+      return;
     }
     if (!--pending) {
       done();

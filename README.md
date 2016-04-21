@@ -82,7 +82,18 @@ src/
 ### App Bundle
 
 App bundles correspond to a page that is served up by your site where the entry pont of the app bundle gets executed when your page is loaded.
-App bundles are created by giving a file an extension of `.app.js`.  No additional app bundles can be defined in any folder beneath a folder that contains an app bundle.
+App bundles are created in one of two ways.  One is by giving a file an extension of `.app.js`.  The other is by creating a package.js file
+that exports an object that has an app property which is a string path that points to the app file relative to the location of the package.js file.
+Below is an example of a package.js file for an app.  Note that a package.js file can contain both app bundle as well as package bundle
+configurations.
+
+```javascript
+module.exports = {
+  app: './myApp.js'
+};
+```
+
+No additional app bundles can be defined in any folder beneath a folder that contains an app bundle.
 When an app bundle is created the files with the .app.js extension will become the entry points and any code referenced directly or indirectly with a require statement will 
 be included in the bundle with the following exceptions.
 
@@ -185,7 +196,7 @@ The resulting tags array would be made up of the following string values in the 
 
 ## API
 
-### `build-asset.registerTasks(options)`
+### `build-bundle.registerTasks(options)`
 
 The registerTasks function will register 3 tasks with gulp which are named as follows:
 
@@ -249,6 +260,11 @@ The configuration options.
 Type: `String`
 
 This is the root path of the output from the bundle task.  It should be the same as the value provided with the options.ouputDir parameter when calling registerTasks.
+
+#### options.baseUrlPath
+Type: `String`
+
+This is the path to apply to the root of all the urls in the generated script tags.
 
 #### options.version
 Type: `String`
