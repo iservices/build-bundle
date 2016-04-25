@@ -24,16 +24,16 @@ describe('BundleManager', function () {
         let tags = bundler.getScriptTags('/chat/group/', false);
         assert.ok(tags, 'a: no tags found');
         assert.equal(tags.length, 3, 'a: wrong number of tags.');
-        assert.equal(tags[0], '<script src="/apps/1.0.1/framework/bundle.js" defer></script>', 'tag 1a is not correct.');
-        assert.equal(tags[1], '<script src="/apps/1.0.1/chat/bundle.js" defer></script>', 'tag 2a is not correct.');
-        assert.equal(tags[2], '<script src="/apps/1.0.1/chat/group/bundle.js" defer></script>', 'tag 3a is not correct.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.js" defer></script>', 'tag 1a is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.js" defer></script>', 'tag 2a is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.js" defer></script>', 'tag 3a is not correct.');
 
         tags = bundler.getScriptTags('/chat/group');
         assert.ok(tags, 'b: no tags found');
         assert.equal(tags.length, 3, 'b: wrong number of tags.');
-        assert.equal(tags[0], '<script src="/apps/1.0.1/framework/bundle.min.js" defer></script>', 'tag 1b is not correct.');
-        assert.equal(tags[1], '<script src="/apps/1.0.1/chat/bundle.min.js" defer></script>', 'tag 2b is not correct.');
-        assert.equal(tags[2], '<script src="/apps/1.0.1/chat/group/bundle.min.js" defer></script>', 'tag 3b is not correct.');
+        assert.equal(tags[0], '<script src="/1.0.1/apps/framework/bundle.min.js" defer></script>', 'tag 1b is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/chat/bundle.min.js" defer></script>', 'tag 2b is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/group/bundle.min.js" defer></script>', 'tag 3b is not correct.');
 
         done();
       }
@@ -55,16 +55,16 @@ describe('BundleManager', function () {
         let tags = bundler.getScriptTags('/chat/group/', false);
         assert.equal(tags.length, 4, 'a: wrong number of tags.');
         assert.equal(tags[0], '<script src="/packages/framework/bundle-1.0.0.js" defer></script>', 'tag 1a is not correct.');
-        assert.equal(tags[1], '<script src="/apps/1.0.1/framework/bundle.js" defer></script>', 'tag 2a is not correct.');
-        assert.equal(tags[2], '<script src="/apps/1.0.1/chat/bundle.js" defer></script>', 'tag 3a is not correct.');
-        assert.equal(tags[3], '<script src="/apps/1.0.1/chat/group/bundle.js" defer></script>', 'tag 4a is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/framework/bundle.js" defer></script>', 'tag 2a is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/bundle.js" defer></script>', 'tag 3a is not correct.');
+        assert.equal(tags[3], '<script src="/1.0.1/apps/chat/group/bundle.js" defer></script>', 'tag 4a is not correct.');
 
         tags = bundler.getScriptTags('/chat/group/', true);
         assert.equal(tags.length, 4, 'wrong number of tags.');
         assert.equal(tags[0], '<script src="/packages/framework/bundle-1.0.0.min.js" defer></script>', 'tag 1b is not correct.');
-        assert.equal(tags[1], '<script src="/apps/1.0.1/framework/bundle.min.js" defer></script>', 'tag 2b is not correct.');
-        assert.equal(tags[2], '<script src="/apps/1.0.1/chat/bundle.min.js" defer></script>', 'tag 3b is not correct.');
-        assert.equal(tags[3], '<script src="/apps/1.0.1/chat/group/bundle.min.js" defer></script>', 'tag 4b is not correct.');
+        assert.equal(tags[1], '<script src="/1.0.1/apps/framework/bundle.min.js" defer></script>', 'tag 2b is not correct.');
+        assert.equal(tags[2], '<script src="/1.0.1/apps/chat/bundle.min.js" defer></script>', 'tag 3b is not correct.');
+        assert.equal(tags[3], '<script src="/1.0.1/apps/chat/group/bundle.min.js" defer></script>', 'tag 4b is not correct.');
         done();
       }
     });

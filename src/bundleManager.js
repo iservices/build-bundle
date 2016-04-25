@@ -37,8 +37,8 @@ const BundleManager = function (opts) {
 BundleManager.prototype.formatScriptTag = function (fileType, file) {
   return '<script src="' +
          path.join(this.baseUrlPath,
-                   fileType,
                    (fileType === this.packagesName ? '' : this.version),
+                   fileType,
                    file.getPathFromRoot())
           .replace(/\\/g, '/') + '" defer></script>';
 };
