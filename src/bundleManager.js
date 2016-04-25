@@ -22,6 +22,8 @@ const BundleManager = function (opts) {
   this.inputDir = path.join(opts.inputDir);
   this.baseUrlPath = opts.baseUrlPath || '/';
   this.version = opts.version || '';
+  this.appsName = opts.appsName || 'apps';
+  this.packagesName = opts.packagesName || 'packages';
 
   this.reset();
 };
@@ -36,7 +38,7 @@ BundleManager.prototype.formatScriptTag = function (fileType, file) {
   return '<script src="' +
          path.join(this.baseUrlPath,
                    fileType,
-                   (fileType === 'packages' ? '' : this.version),
+                   (fileType === this.packagesName ? '' : this.version),
                    file.getPathFromRoot())
           .replace(/\\/g, '/') + '" defer></script>';
 };
@@ -46,7 +48,6 @@ BundleManager.prototype.formatScriptTag = function (fileType, file) {
  * @param {TreeNode} dir - The app directory to create a tag set for.
  * @param {TreeNode} packDir - The package directory that corresponds to the given dir.
  * @param {Stirng} appBundleName - The name of the app bundle.
- * @param {String} packageBundleName - The name of the package bundle.
  * @param {Array} result - The array to add the resulting script tags to.
  * @returns {void}
  */
@@ -54,13 +55,13 @@ BundleManager.prototype.buildScriptTag = function (dir, packDir, appBundleName, 
   // add app
   const app = dir.getByPath(appBundleName);
   if (app) {
-    result.unshift(this.formatScriptTag('apps', app));
+    result.unshift(this.formatScriptTag(this.appsName, app));
   }
   // add package
   if (packDir) {
     const packFiles = packDir.getFilesByPattern((appBundleName === appBundleDevName) ? packageBundleDevPattern : packageBundleMinPattern);
     if (packFiles.length > 0) {
-      result.unshift(this.formatScriptTag('packages', packFiles[0]));
+      result.unshift(this.formatScriptTag(this.packagesName, packFiles[0]));
     }
   }
 };
@@ -125,11 +126,11 @@ BundleManager.prototype.reset = function () {
   const tree = fto.createTreeSync(this.inputDir);
 
   // get apps and packages directories
-  const appsDir = tree.getByPath(path.join('apps', this.version));
+  const appsDir = tree.getByPath(path.join(this.version, this.appsName));
   if (!appsDir) {
     return;
   }
-  const packagesDir = tree.getByPath('packages');
+  const packagesDir = tree.getByPath(this.packagesName);
 
   // make directories roots
   appsDir.parent = null;

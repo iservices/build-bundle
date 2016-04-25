@@ -225,6 +225,16 @@ Type: `String`
 An optional version number for the bundled app, lib, and framework code.  This is used with caching schemes so that when the version number is incremented with a new 
 release the new bundles will be downloaded instead of loaded from the browser cache.
 
+#### options.appsName
+Type: `String` Default: `apps`
+
+An optional name to give the folder that will contain the apps code.
+
+#### options.packagesName
+Type: `String` Default: `packages`
+
+An optional name to give the folder that will contain the packages code.
+
 #### options.buildDev
 Type: `Boolean` Default: `true`
 
@@ -270,6 +280,18 @@ This is the path to apply to the root of all the urls in the generated script ta
 Type: `String`
 
 The optional version number of the resulting output from the bundle task.  It should be the same as the value provided with the options.version parameter when calling registerTasks.
+
+#### options.appsName
+Type: `String` Default: `apps`
+
+The optional name given the folder that contains the apps code.
+It should be the same as the value provided with the options.appsName parameter when calling registerTasks.
+
+#### options.packagesName
+Type: `String` Default: `packages`
+
+The optional name given the folder that contains the packages code.
+It should be the same as the value provided with the options.packagesName parameter when calling registerTasks.
 
 ### `BundleManager`
 Type: `Class`

@@ -300,6 +300,8 @@ function bundle(fn, tree, opts, cb) {
  * @param {String} options.inputDir - The folder to bundle app code from.
  * @param {String} options.outputDir - The output for the bundled code.
  * @param {String} [options.version] - An optional version number to output apps code into within the outputDir.
+ * @param {String} [options.appsName] - An optional name to give to the folder for app output.
+ * @param {String} [options.packagesName] - An optional name to give to the folder for package output.
  * @param {Boolean} [options.buildDev] - Flag that indicates if unminified bundles will be created.  Defaults to true.
  * @param {Boolean} [options.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
  * @param {String} [options.tasksPrefix] - Prefix to prepend to registered tasks.
@@ -318,12 +320,13 @@ module.exports = (options) => {
     tasksPrefix: (opts.tasksPrefix === undefined) ? '' : opts.tasksPrefix + '-'
   };
 
-  input.appsOutputDir = path.join(input.outputDir, 'apps');
+  input.appsOutputDir = input.outputDir;
   if (opts.version) {
     input.appsOutputDir = path.join(input.appsOutputDir, opts.version);
   }
+  input.appsOutputDir = path.join(input.appsOutputDir, opts.appsName || 'apps');
 
-  input.packagesOutputDir = path.join(input.outputDir, 'packages');
+  input.packagesOutputDir = path.join(input.outputDir, opts.packagesName || 'packages');
   input.frameworkDir = path.join(input.inputDir, 'framework');
   input.baseOutputDir = input.inputDir.slice(process.cwd().length);
 
