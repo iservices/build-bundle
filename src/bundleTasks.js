@@ -117,7 +117,10 @@ function bundleApp(dir, opts, minify, cb) {
   // check for any apps defined in a package.js file
   const packageFile = dir.getByPath('package.js');
   if (packageFile) {
-    const packageData = require(packageFile.path);
+    let packageData = require(packageFile.path);
+    if (packageData.default) {
+      packageData = packageData.default;
+    }
     if (packageData.app) {
       const appPaths = Array.isArray(packageData.app) ? packageData.app : [packageData.app];
       appPaths.forEach(function (appPath) {
