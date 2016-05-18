@@ -151,7 +151,7 @@ function bundleApp(dir, opts, minify, cb) {
   }
 
   // configure the bundler
-  const bundler = browserify({ debug: true });
+  const bundler = browserify({ debug: true, builtins: false, detectGlobals: false });
   bundler.plugin(minifyify, {
     map: 'bundle.min.js.map',
     output: path.join(outputPath, 'bundle.min.js.map'),
@@ -208,7 +208,7 @@ function bundlePackage(dir, opts, minify, cb) {
   const bundleNameMin = 'bundle' + (packData.version ? '-' + packData.version : '') + '.min.js';
 
   // configure the bundler
-  const bundler = browserify({ debug: true });
+  const bundler = browserify({ debug: true, builtins: false, detectGlobals: false });
   bundler.plugin(minifyify, {
     map: bundleNameMin + '.map',
     output: path.join(outputPath, bundleNameMin + '.map'),
