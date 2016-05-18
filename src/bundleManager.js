@@ -5,8 +5,10 @@ const fto = require('file-tree-object');
 
 const appBundleDevName = 'bundle.js';
 const appBundleMinName = 'bundle.min.js';
+const appBundleZipName = 'bundle.min.js.gz';
 const packageBundleDevPattern = /bundle(?!.*\.min\.js$).*\.js$/;
 const packageBundleMinPattern = /bundle.*\.min\.js$/;
+const packageBundleZipPattern = /bundle.*\.min\.js\.gz$/;
 
 /**
  * This object can be used to manage bundles that have been created through the registered tasks.
@@ -59,7 +61,13 @@ BundleManager.prototype.buildScriptTag = function (dir, packDir, appBundleName, 
   }
   // add package
   if (packDir) {
-    const packFiles = packDir.getFilesByPattern((appBundleName === appBundleDevName) ? packageBundleDevPattern : packageBundleMinPattern);
+    let packagePattern = packageBundleDevPattern;
+    if (appBundleName === appBundleMinName) {
+      packagePattern = packageBundleMinPattern;
+    } else if (appBundleName === appBundleZipName) {
+      packagePattern = packageBundleZipPattern;
+    }
+    const packFiles = packDir.getFilesByPattern(packagePattern);
     if (packFiles.length > 0) {
       result.unshift(this.formatScriptTag(this.packagesName, packFiles[0]));
     }
@@ -71,11 +79,11 @@ BundleManager.prototype.buildScriptTag = function (dir, packDir, appBundleName, 
  * @param {TreeNode} appsDir - The root apps directory.
  * @param {TreeNode} packagesDir - The root packages directory.
  * @param {TreeNode} dir - The app to create tags for.
- * @param {Boolean} minify - If true create minified script tags.
+ * @param {String} format - The type of tags to build.  Can be dev, min, or zip.
  * @param {Array} result - The array to add the resulting script tags to.
  * @returns {void}
  */
-BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, minify, result) {
+BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, format, result) {
   if (!dir) {
     return;
   }
@@ -87,8 +95,10 @@ BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, m
     const appFwkDir = dir.getByPath('framework');
     const packageFwkDir = packagesDir ? packagesDir.getByPath('framework') : null;
     if (appFwkDir) {
-      if (minify) {
+      if (format === 'min') {
         this.buildScriptTag(appFwkDir, packageFwkDir, appBundleMinName, result);
+      } else if (format === 'zip') {
+        this.buildScriptTag(appFwkDir, packageFwkDir, appBundleZipName, result);
       } else {
         this.buildScriptTag(appFwkDir, packageFwkDir, appBundleDevName, result);
       }
@@ -104,15 +114,17 @@ BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, m
   }
 
   // add in bundles
-  if (minify) {
+  if (format === 'min') {
     this.buildScriptTag(dir, packDir, appBundleMinName, result);
+  } else if (format === 'zip') {
+    this.buildScriptTag(dir, packDir, appBundleZipName, result);
   } else {
     this.buildScriptTag(dir, packDir, appBundleDevName, result);
   }
 
   // recurse
   if (!isRoot) {
-    this.buildScriptTags(appsDir, packagesDir, dir.parent, minify, result);
+    this.buildScriptTags(appsDir, packagesDir, dir.parent, format, result);
   }
 };
 
@@ -123,6 +135,7 @@ BundleManager.prototype.buildScriptTags = function (appsDir, packagesDir, dir, m
 BundleManager.prototype.reset = function () {
   this.manifestDev = {};
   this.manifestMin = {};
+  this.manifestZip = {};
   const tree = fto.createTreeSync(this.inputDir);
 
   // get apps and packages directories
@@ -152,16 +165,23 @@ BundleManager.prototype.reset = function () {
 
     // dev tags
     const scriptsDev = [];
-    this.buildScriptTags(appsDir, packagesDir, dir, false, scriptsDev);
+    this.buildScriptTags(appsDir, packagesDir, dir, 'dev', scriptsDev);
     if (scriptsDev.length) {
       this.manifestDev[dir.getPathFromRoot().toLowerCase() + path.sep] = scriptsDev;
     }
 
     // min tags
     const scriptsMin = [];
-    this.buildScriptTags(appsDir, packagesDir, dir, true, scriptsMin);
+    this.buildScriptTags(appsDir, packagesDir, dir, 'min', scriptsMin);
     if (scriptsMin.length) {
       this.manifestMin[dir.getPathFromRoot().toLowerCase() + path.sep] = scriptsMin;
+    }
+
+    // zip tags
+    const scriptsZip = [];
+    this.buildScriptTags(appsDir, packagesDir, dir, 'zip', scriptsZip);
+    if (scriptsMin.length) {
+      this.manifestZip[dir.getPathFromRoot().toLowerCase() + path.sep] = scriptsZip;
     }
   }.bind(this), { recurse: true });
 };
@@ -169,16 +189,20 @@ BundleManager.prototype.reset = function () {
 /**
  * Get the script tags for the given app path.
  * @param {String} appPath - The path for the app to get script tags for.
- * @param {minify} minify - When false, unminified script tags are returned.  Default is true.
+ * @param {String} format - The type of tags returned.  Can be dev, min, or zip.  Default is dev.
  * @returns {Array} The script tags for the app or undefined if there isn't an app with the given path.
  */
-BundleManager.prototype.getScriptTags = function (appPath, minify) {
+BundleManager.prototype.getScriptTags = function (appPath, format) {
   let normPath = path.join(appPath, '/').toLowerCase();
   if (normPath.charAt(0) === path.sep) {
     normPath = normPath.slice(1);
   }
-  if (minify || minify === undefined) {
+
+  if (format === 'min') {
     return this.manifestMin[normPath];
+  }
+  if (format === 'zip') {
+    return this.manifestZip[normPath];
   }
   return this.manifestDev[normPath];
 };

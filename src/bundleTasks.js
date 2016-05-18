@@ -3,6 +3,8 @@
 
 const gulp = require('gulp');
 const path = require('path');
+const zlib = require('zlib');
+const fs = require('fs');
 const del = require('del');
 const browserify = require('browserify');
 const minifyify = require('minifyify');
@@ -13,6 +15,24 @@ const fto = require('file-tree-object');
 const appsPattern = /\.app\.js$/;
 const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
 const frameworkPattern = /^framework[\\\/]/;
+
+/**
+ * Create a zip file.
+ * @param {String} inputFilename - The name of the input file.
+ * @param {String} outputFilename - THe name of the output file.
+ * @param {Function} cb - The function to call after the file has been created.
+ * @return {void}
+ */
+function zip(inputFilename, outputFilename, cb) {
+  const gzip = zlib.createGzip();
+  const input = fs.createReadStream(inputFilename);
+  const output = fs.createWriteStream(outputFilename);
+  input
+    .pipe(gzip)
+    .pipe(output)
+    .on('error', function (err) { cb(err); })
+    .on('close', function () { cb(); });
+}
 
 /**
  * Returns the path property of the given file.
@@ -178,7 +198,17 @@ function bundleApp(dir, opts, minify, cb) {
     .pipe(source(minify ? 'bundle.min.js' : 'bundle.js'))
     .pipe(buffer())
     .pipe(gulp.dest(outputPath))
-    .on('end', function () { done(); });
+    .on('end', function () {
+      if (minify) {
+        zip(path.join(outputPath, 'bundle.min.js'),
+            path.join(outputPath, 'bundle.min.js.gz'),
+            function (err) {
+              done(err);
+            });
+      } else {
+        done();
+      }
+    });
 }
 
 /**
@@ -232,7 +262,17 @@ function bundlePackage(dir, opts, minify, cb) {
     .pipe(source(minify ? bundleNameMin : bundleName))
     .pipe(buffer())
     .pipe(gulp.dest(outputPath))
-    .on('end', function () { done(); });
+    .on('end', function () {
+      if (minify) {
+        zip(path.join(outputPath, bundleNameMin),
+            path.join(outputPath, bundleNameMin + '.gz'),
+            function (err) {
+              done(err);
+            });
+      } else {
+        done();
+      }
+    });
 }
 
 /**
