@@ -35,6 +35,18 @@ function zip(inputFilename, outputFilename, cb) {
 }
 
 /**
+ * Create the path for an exposed module.
+ * @param {String} baseDir - The base directory for the path.
+ * @param {String} relativePath - The relative path to the file.
+ * @return {String} The path to use for the exposed module.
+ */
+function exposePath(baseDir, relativePath) {
+  return (process.platform === 'win32') ?
+    '/' + path.join(baseDir, relativePath).slice(1) :
+    path.join(baseDir, relativePath);
+}
+
+/**
  * Returns the path property of the given file.
  * @param {String} file - The file to read the path property from.
  * @returns {String} The path property of the file.
@@ -188,7 +200,7 @@ function bundleApp(dir, opts, minify, cb) {
   } else {
     // exported modules
     libs.forEach(function (file) {
-      bundler.require(file.path, { expose: path.join(opts.input.baseOutputDir, file.getPathFromRoot()) });
+      bundler.require(file.path, { expose: exposePath(opts.input.baseOutputDir, file.getPathFromRoot()) });
     });
   }
 
@@ -395,7 +407,7 @@ module.exports = (options) => {
    */
   gulp.task(input.tasksPrefix + 'bundlePackages', input.tasksDependencies, function (done) {
     // clear out any previous bundles
-    del.sync(input.appsOutputDir);
+    del.sync(input.packagesOutputDir);
 
     // create tree of directories and bundle directories
     fto.createTree(input.inputDir, { filePattern: /\.js$/ })
