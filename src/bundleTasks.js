@@ -494,6 +494,11 @@ module.exports = (options) => {
     };
 
     watch(path.join(input.inputDir, '**/*.js'), function (file) {
+      // ignore files that begin with a dot
+      if (path.basename(file.path)[0] === '.') {
+        return;
+      }
+
       console.log('watch bundle: ' + file.path + ' event: ' + file.event);
 
       // create tree of directories

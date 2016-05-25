@@ -19,7 +19,7 @@
   "dependencies": {
     "browserify": "^13.0.0",
     "del": "^2.2.0",
-    "file-tree-object": "^0.0.7",
+    "file-tree-object": "^0.0.11",
     "gulp": "^3.9.0",
     "minifyify": "^7.3.3",
     "vinyl-buffer": "^1.0.0",
