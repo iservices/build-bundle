@@ -17,6 +17,30 @@ const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
 const frameworkPattern = /^framework[\\\/]/;
 
 /**
+  * This function is used to notify developers of an error that occured
+  * as a result of a changed file.
+  *
+  * @param {Error} err - The error to notify the user about.
+  * @param {string} title - The title for the notification window.
+  * @param {string} message - The message to display in the notification window.
+  * @returns {void}
+  */
+function notify(err, title, message) {
+  require('node-notifier').notify({
+    title: title,
+    message: message
+  });
+
+  if (err) {
+    if (err.message) {
+      console.log(err.message);
+    } else {
+      console.log(err);
+    }
+  }
+}
+
+/**
  * Create a zip file.
  * @param {String} inputFilename - The name of the input file.
  * @param {String} outputFilename - THe name of the output file.
@@ -328,7 +352,7 @@ function bundle(fn, tree, opts, cb) {
   const fwk = {
     apps: [],
     libs: [],
-    dir: tree.getChildByPath('framework')
+    dir: tree.getRoot().getChildByPath('framework') || fto.createTreeSync(opts.input.frameworkDir, { ignoreError: true })
   };
   if (fwk.dir) {
     fwk.dir.forEachDirectory(function (folder) {
@@ -345,7 +369,40 @@ function bundle(fn, tree, opts, cb) {
     if (opts.input.buildDev) {
       fn(dir, { input: opts.input, framework: fwk }, false, bundleDone);
     }
-  }, { recurse: true });
+  }, { recurse: opts.recurse });
+}
+
+/**
+ * Determine the folder that should be bundled for the given tree node.
+ * @param {TreeNode} treeNode - The tree node to check.
+ * @return {String} The tree node that should be bundled.
+ */
+function getNodeForBundle(treeNode) {
+  // any framework files should be bundled with the framework folder
+  if (treeNode.getPathFromRoot().indexOf(path.normalize('framework/')) === 0) {
+    return treeNode.getRoot().getChildByPath('framework');
+  }
+
+  // any files that fall under an app folder should be bundled with the app
+  let currentNode = treeNode;
+  while (currentNode) {
+    if (currentNode.getChildrenByPattern(appsPattern).length > 0) {
+      return currentNode;
+    }
+
+    const packageNode = currentNode.getChildByPath('package.js');
+    if (packageNode) {
+      const packageInfo = require(packageNode.path);
+      if (packageInfo.app) {
+        return currentNode;
+      }
+    }
+
+    currentNode = currentNode.parent;
+  }
+
+  // default to a lib folder
+  return treeNode.isDirectory ? treeNode : treeNode.parent;
 }
 
 /**
@@ -395,7 +452,7 @@ module.exports = (options) => {
     // create tree of directories and bundle directories
     fto.createTree(input.inputDir, { filePattern: /\.js$/ })
       .then(function (tree) {
-        bundle(bundleApp, tree, { input: input }, done);
+        bundle(bundleApp, tree, { input: input, recurse: true }, done);
       })
       .catch(function (err) {
         done(err);
@@ -412,7 +469,7 @@ module.exports = (options) => {
     // create tree of directories and bundle directories
     fto.createTree(input.inputDir, { filePattern: /\.js$/ })
       .then(function (tree) {
-        bundle(bundlePackage, tree, { input: input }, done);
+        bundle(bundlePackage, tree, { input: input, recurse: true }, done);
       })
       .catch(function (err) {
         done(err);
@@ -423,5 +480,50 @@ module.exports = (options) => {
    * Bundle both apps and packages.
    */
   gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleApps', input.tasksPrefix + 'bundlePackages'], function () {
+  });
+
+  /*
+   * Watch for changes to app files so we can rebundle on the fly.
+   */
+  gulp.task(input.tasksPrefix + 'watch-bundle', function () {
+    const watch = require('gulp-watch');
+    const done = function (err) {
+      if (err) {
+        notify(err, 'Bundle Error', 'See console for details.');
+      }
+    };
+
+    watch(path.join(input.inputDir, '**/*.js'), function (file) {
+      console.log('watch bundle: ' + file.path + ' event: ' + file.event);
+
+      // create tree of directories
+      fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+        .then(function (tree) {
+          // get the tree node
+          const treeNode = tree.getByPath(file.path);
+          if (!treeNode) {
+            throw new Error('Could not find node in tree.');
+          }
+
+          const bundleNode = getNodeForBundle(treeNode);
+
+          // package.js file change
+          if (treeNode.basename === 'package.js') {
+            const packageInfo = require(treeNode.path);
+            if (packageInfo.modules) {
+              bundle(bundlePackage, bundleNode, { input: input, recurse: false }, done);
+            }
+            if (packageInfo.app) {
+              bundle(bundleApp, bundleNode, { input: input, recurse: false }, done);
+            }
+          // all other files
+          } else {
+            bundle(bundleApp, bundleNode, { input: input, recurse: false }, done);
+          }
+        })
+        .catch(function (err) {
+          done(err);
+        });
+    });
   });
 };

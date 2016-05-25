@@ -76,4 +76,27 @@ describe('registerTasks', function () {
     });
     gulp.start('pck-bundle');
   });
+
+  it('simple watch task setup works as expected.', function (done) {
+    this.timeout(8000);
+
+    del.sync(path.normalize(__dirname + '/../../testOutput/watch/'));
+    require(__dirname + '/fixtures/watchSimple/gulpfile');
+    gulp.on('task_stop', function (e) {
+      if (e.task === 'watch-watch-bundle') {
+        setTimeout(function () {
+          const text = fs.readFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', 'utf8');
+          fs.writeFileSync(__dirname + '/fixtures/watchSimple/apps/chat/group/groupChat.app.js', text);
+        }, 2000);
+        setTimeout(function (finish) {
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.js');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js.map');
+          fs.statSync(__dirname + '/../../testOutput/watchSimple/dist/apps/chat/group/bundle.min.js.gz');
+          finish();
+        }, 4000, done);
+      }
+    });
+    gulp.start('watch-watch-bundle');
+  });
 });
