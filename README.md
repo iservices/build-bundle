@@ -208,10 +208,10 @@ The resulting tags array would be made up of the following string values in the 
   * [registerTasks](#module_build-bundle~registerTasks)
 
 
-<br/><a name="BundleManager"></a>
+<a name="BundleManager"></a>
 ## **BundleManager** (class)  
   
-<br/>
+
 ## new BundleManager(opts)  
 This class is used to manage bundles that have been created through the registered tasks. To create a new instance of BundleManager call the [createManager](#module_build-bundle~createManager) function defined in the build-bundle module.  
   
@@ -226,9 +226,9 @@ This class is used to manage bundles that have been created through the register
   
 
 
-<br/>
-### **Functions**  
-<br/>
+
+### *Functions*  
+
 <a name="BundleManager#getScriptTags"></a>
 ## getScriptTags(appPath, format) ⇒ Array  
 Get the script tags for the given app path.  
@@ -244,15 +244,15 @@ Get the script tags for the given app path.
 The script tags for the app or undefined if there isn't an app with the given path.  
 
 
-<br/>
-<br/><a name="module_build-bundle"></a>
+
+<a name="module_build-bundle"></a>
 ## **build-bundle** (module)  
 Registers bundle tasks.  
 
 
-<br/>
-### **Functions**  
-<br/>
+
+### *Functions*  
+
 <a name="module_build-bundle~createManager"></a>
 ## createManager(opts) ⇒ BundleManager  
 Create a new instance of the BundleManager class.  
@@ -267,7 +267,7 @@ Create a new instance of the BundleManager class.
 A new instance of BundleManager.  
 
 
-<br/>
+
 <a name="module_build-bundle~registerTasks"></a>
 ## registerTasks(options) ⇒ void  
 Register tasks using the given options.  
@@ -290,4 +290,4 @@ Register tasks using the given options.
 **Returns:** `void`  
 
 
-<br/>
+
