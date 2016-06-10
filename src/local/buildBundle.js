@@ -1,5 +1,11 @@
-/* eslint no-console:0,object-shorthand:0 */
+/**
+ * Registers bundle tasks.
+ *
+ * @module build-bundle
+ */
 'use strict';
+
+/* eslint no-console:0 */
 
 const gulp = require('gulp');
 const path = require('path');
@@ -11,6 +17,7 @@ const minifyify = require('minifyify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
 const fto = require('file-tree-object');
+const BundleManager = require('./bundleManager');
 
 const appsPattern = /\.app\.js$/;
 const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
@@ -20,6 +27,7 @@ const frameworkPattern = /^framework[\\\/]/;
   * This function is used to notify developers of an error that occured
   * as a result of a changed file.
   *
+  * @ignore
   * @param {Error} err - The error to notify the user about.
   * @param {string} title - The title for the notification window.
   * @param {string} message - The message to display in the notification window.
@@ -42,6 +50,8 @@ function notify(err, title, message) {
 
 /**
  * Create a zip file.
+ *
+ * @ignore
  * @param {String} inputFilename - The name of the input file.
  * @param {String} outputFilename - THe name of the output file.
  * @param {Function} cb - The function to call after the file has been created.
@@ -60,6 +70,8 @@ function zip(inputFilename, outputFilename, cb) {
 
 /**
  * Create the path for an exposed module.
+ *
+ * @ignore
  * @param {String} baseDir - The base directory for the path.
  * @param {String} relativePath - The relative path to the file.
  * @return {String} The path to use for the exposed module.
@@ -72,6 +84,8 @@ function exposePath(baseDir, relativePath) {
 
 /**
  * Returns the path property of the given file.
+ *
+ * @ignore
  * @param {String} file - The file to read the path property from.
  * @returns {String} The path property of the file.
  */
@@ -81,6 +95,8 @@ function toPath(file) {
 
 /**
  * Read in a package object.
+ *
+ * @ignore
  * @param {String|TreeNode} file - The file to read in the package from.
  * @returns {Package} The package object that was read in.
  */
@@ -97,6 +113,8 @@ function readInPackage(file) {
 
 /**
  * Get all of the require values found in packages that are the parent of the given folder.
+ *
+ * @ignore
  * @param {TreeNode} dir - The folder to get parent require values for.
  * @param {Boolean} includeDir - If set to true then any package in the dir folder will be included.
  * @returns {Array} An array of the require values.
@@ -141,6 +159,8 @@ function getParentPackageRequires(dir, includeDir) {
 
 /**
  * Bundle the given directory into an app.
+ *
+ * @ignore
  * @param {TreeNode} dir - The directory to bundle into an app.
  * @param {Object} opts - The options.
  * @param {Boolean} minify - If true the resulting bundle will be minified.
@@ -249,6 +269,8 @@ function bundleApp(dir, opts, minify, cb) {
 
 /**
  * Bundle the given directory into a package.
+ *
+ * @ignore
  * @param {TreeNode} dir - The directory to bundle into a package.
  * @param {Object} opts - The options.
  * @param {Boolean} minify - If true the resulting bundle will be minified.
@@ -313,6 +335,8 @@ function bundlePackage(dir, opts, minify, cb) {
 
 /**
  * Bundle either apps or packages.
+ *
+ * @ignore
  * @param {Function} fn - The bundle function to execute.  Either bundleApps or bundlePackages.
  * @param {TreeNode} tree - The tree to bundle.
  * @param {Object} opts - Options to pass to the bundle functions.
@@ -374,6 +398,8 @@ function bundle(fn, tree, opts, cb) {
 
 /**
  * Determine the folder that should be bundled for the given tree node.
+ *
+ * @ignore
  * @param {TreeNode} treeNode - The tree node to check.
  * @return {String} The tree node that should be bundled.
  */
@@ -420,7 +446,7 @@ function getNodeForBundle(treeNode) {
  * @param {String[]} [options.tasksDependencies] - Optional array of tasks names that must be completed before these registered tasks runs.
  * @returns {void}
  */
-module.exports = (options) => {
+function registerTasks(options) {
   const opts = options || {};
   const input = {
     inputDir: path.resolve(opts.inputDir),
@@ -531,4 +557,17 @@ module.exports = (options) => {
         });
     });
   });
-};
+}
+
+/**
+ * Create a new instance of the BundleManager class.
+ *
+ * @param {Object} opts - The options passed to the BundleManager constructor.  See {@link BundleManager} for the parameters.
+ * @return {BundleManager} A new instance of BundleManager.
+ */
+function createManager(opts) {
+  return new BundleManager(opts);
+}
+
+module.exports.registerTasks = registerTasks;
+module.exports.createManager = createManager;

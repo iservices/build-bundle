@@ -1,11 +1,8 @@
+/**
+ * Exposes the buildBundle module.
+ *
+ * @module index
+ */
 'use strict';
 
-const tasks = require('./bundleTasks');
-const BundleManager = require('./bundleManager');
-
-module.exports = {
-  registerTasks: tasks,
-  createManager: (opts) => {
-    return new BundleManager(opts);
-  }
-};
+module.exports = require('./local/buildBundle');

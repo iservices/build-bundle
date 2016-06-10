@@ -3,7 +3,14 @@
 {
   "extends": "iservices",
   "parser": "babel-eslint",
+  "env": {
+    "es6": false,
+    "browser": false,
+    "node": true,
+    "mocha": true
+  },
   "rules": {
-    "strict": 0
+    "strict": 0,
+    "object-shorthand": 0
   }
 }
