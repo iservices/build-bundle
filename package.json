@@ -1,15 +1,15 @@
 {
   "name": "build-bundle",
-  "version": "1.1.42",
-  "description": "Tasks and tools for bundling client code.",
-  "main": "src/index.js",
+  "version": "2.0.0",
+  "description": "Code bundle command line tool.",
+  "main": "src/bundleManager.js",
+  "bin": "src/buildBundle.js",
   "files": [
-    "src/local/"
+    "src/"
   ],
   "scripts": {
-    "doc": "gulp doc",
-    "test": "gulp test-with-coverage",
-    "prepublish": "gulp test-with-coverage && gulp doc"
+    "lint": "build-lint \"src/**/*.js\"",
+    "lint-watch": "build-lint \"src/**/*.js\" -w"
   },
   "repository": {
     "type": "git",
@@ -23,19 +23,12 @@
   "license": "UNLICENSED",
   "dependencies": {
     "browserify": "^13.0.0",
+    "chokidar": "^1.5.2",
     "del": "^2.2.0",
     "file-tree-object": "^0.0.11",
-    "gulp": "^3.9.0",
-    "minifyify": "^7.3.3",
-    "vinyl-buffer": "^1.0.0",
-    "vinyl-source-stream": "^1.1.0"
+    "minifyify": "^7.3.3"
   },
   "devDependencies": {
-    "build-doc": "^1.0.1",
-    "build-lint": "^1.0.0",
-    "build-test": "^1.0.0",
-    "gulp-watch": "^4.3.6",
-    "jquery": "^2.1.4",
-    "node-notifier": "^4.5.0"
+    "build-lint": "^2.0.0"
   }
 }

@@ -3,41 +3,34 @@
 This package is currently in **BETA**
 
 ## Overview
-This is a node package that defines gulp tasks and other utliites that are used to bundle code that will be provided to a client browser.  The goal of this package
-is to provide an easy to use structure that automates the bundling of code in an efficient way that is well suited for large scale enterprise applications.
+This is a node package that includes a command line tool used to bundle code that will be provided to a client browser.
+It also includes a class that is used to parse the resulting bundles so that web pages can be generated around them.
+The goal of this package is to provide an easy to use structure that automates the bundling of code in an efficient way that
+is well suited for large scale enterprise applications.
 The [browserify](https://www.npmjs.com/package/browserify) package is used for bundling.
 
 ## Guide
 
-To install this package execute the following command in the console from within your project.
+To start you will need to install this package for your project by executing the following command within your project from the console.
 
 ```
 npm install --save build-bundle
+``` 
+Once the package is installed you can run the tool from a terminal using the `build-bundle` command.  Normally you will
+do this within an npm script element.  Take the following excerpt from an example package.json file:
+
+```JSON
+{
+  "scripts": {
+    "bundle": "build-bundle src/apps/ -o dist -v 1.0.0",
+    "bundle-watch": "build-bundle src/apps/ -o dist -v 1.0.0 -w",
+  }
+}
 ```
 
-Once the package is installed you will need to create a `gulpfile.js` file within the root folder of your project if there isn't one already.
-Within this file you will register the gulp tasks that are defined within this package using the registerTasks function.  The following is an example of this.
-
-```
-'use strict';
-
-const bundle = require('build-bundle');
-
-bundle.registerTasks({
-  inputDir: 'src/client/',
-  outputDir: 'dist/',
-  version: '1.0.1'
-});
-```
-
-Once you have registered the bundle tasks you can perform bundling using gulp.
-To bundle code simply execute the following console command from within your project.
-
-```
-gulp bundle
-```
-
-In addition to executing tasks from the console you can also chain the gulp bundle tasks together with other gulp tasks to utilize the bundle functionality however it's needed.
+In the example above the `bundle` script will bundle all of the code files within the `src/apps/` folder and emit the resulting bundles
+to the `dist/1.0.0/apps` and `dist/packages/` folders.
+The `bundle-watch` script will bundle the same source files whenever one of them is updated or added.
 
 ## Bundle Structure
 
@@ -177,9 +170,9 @@ Here is an example of using the BundleManager to create script tags for a page a
 ```javascript
 'use strict';
 
-const bundle = require('build-bundle');
+const BundleManager = require('build-bundle');
 
-const bundler = bundle.createManager({
+const bundler = new BundleManager({
   inputDir: 'dist/',
   baseUrlPath: '/dist',
   version: '1.0.1' });
@@ -189,10 +182,30 @@ const tags = bundler.getScriptTags('login/oauth');
 
 The resulting tags array would be made up of the following string values in the following order which can be included in your page.
 
-1. `<script src="/dist/packages/bundle-1.0.0.min.js" defer></script>`
-2. `<script src="/dist/apps/1.0.1/framework/bundle.min.js"></script>`
-3. `<script src="/dist/apps/1.0.1/login/bundle.min.js"></script>`
-4. `<script src="/dist/apps/1.0.1/login/oauth/bundle.min.js"></script>`
+1. `<script src="/dist/packages/bundle-1.0.0.js" defer></script>`
+2. `<script src="/dist/apps/1.0.1/framework/bundle.js" defer></script>`
+3. `<script src="/dist/apps/1.0.1/login/bundle.js" defer></script>`
+4. `<script src="/dist/apps/1.0.1/login/oauth/bundle.js" defer></script>`
+
+## Command Line
+
+Usage:
+```
+build-bundle <dir> -o <output directory> [-e <app|package|both>]
+             [-v <version>] [-a <name>] [-p <name>] [-w] [-k]
+```
+Options:
+
+| Option | Description |
+| ---    | ---         |
+| `<dir>` | The directory that contains all of the code to bundle. |
+| -a     | A name to include in the app bundles output path.  Defaults to apps. |
+| -e     | The type of bundles to emit.  Choices are app, package, and both.  Defaults to both. |
+| -k     | When this option is specified the output folder will not be deleted before bundles are emitted. |
+| -o     | The directory to emit bundles to. |
+| -p     | A name to include in the package bundles output path.  Defaults to packages. |
+| -v     | A version number to include in the output path. |
+| -w     | When present the files specified in the glob pattern(s) will be watched for changes and copied when they do change. |
 
 ## Classes
 
@@ -200,17 +213,9 @@ The resulting tags array would be made up of the following string values in the 
   * Functions
   * [getScriptTags](#BundleManager#getScriptTags)
 
-## Modules
-
-* [build-bundle](#module_build-bundle)
-  * Functions
-  * [createManager](#module_build-bundle~createManager)
-  * [registerTasks](#module_build-bundle~registerTasks)
-
 
 <a name="BundleManager"></a>
 ## **BundleManager** (class)  
-  
 
 ## new BundleManager(opts)  
 This class is used to manage bundles that have been created through the registered tasks. To create a new instance of BundleManager call the [createManager](#module_build-bundle~createManager) function defined in the build-bundle module.  
@@ -220,12 +225,9 @@ This class is used to manage bundles that have been created through the register
 | Param | Type | Attributes | Description |
 | --- | --- | --- | --- |
 | opts | `Object` |   | The configuration object. |
-| opts.inputDir | `string` |   | The root path to the generated bundles.  This should match the outputDir                                 value used with the bundle task. |
-| opts.baseUrlPath | `String` |   | The base path prepended to the script urls. |
-| opts.version | `string` | optional | This should be the same value that was provided to the registerTasks function. |
-  
-
-
+| opts.inputDir | `String` |   | The root path to the generated bundles.  This should match the -o value provided to the command line tool. |
+| opts.baseUrlPath | `String` | optional | The base path prepended to the script urls.  Defaults to /. |
+| opts.version | `String` | optional | This should match the -v value provided to the command line tool. |
 
 ### *Functions*  
 
@@ -238,56 +240,7 @@ Get the script tags for the given app path.
 | Param | Type | Attributes | Description |
 | --- | --- | --- | --- |
 | appPath | `String` |   | The path for the app to get script tags for. |
-| format | `String` |   | The type of tags returned.  Can be dev, min, or zip.  Default is dev. |
+| zip | `Boolean` |   | When set to true the tags for the zipped bundles will be returned.  Defaults to false. |
   
 **Returns:** `Array`  
 The script tags for the app or undefined if there isn't an app with the given path.  
-
-
-
-<a name="module_build-bundle"></a>
-## **build-bundle** (module)  
-Registers bundle tasks.  
-
-
-
-### *Functions*  
-
-<a name="module_build-bundle~createManager"></a>
-## createManager(opts) ⇒ BundleManager  
-Create a new instance of the BundleManager class.  
-  
-**Parameters:**  
-
-| Param | Type | Attributes | Description |
-| --- | --- | --- | --- |
-| opts | `Object` |   | The options passed to the BundleManager constructor.  See [BundleManager](#BundleManager) for the parameters. |
-  
-**Returns:** `BundleManager`  
-A new instance of BundleManager.  
-
-
-
-<a name="module_build-bundle~registerTasks"></a>
-## registerTasks(options) ⇒ void  
-Register tasks using the given options.  
-  
-**Parameters:**  
-
-| Param | Type | Attributes | Description |
-| --- | --- | --- | --- |
-| options | `Object` |   | Options for bundling. |
-| options.inputDir | `String` |   | The folder to bundle app code from. |
-| options.outputDir | `String` |   | The output for the bundled code. |
-| options.version | `String` | optional | An optional version number to output apps code into within the outputDir. |
-| options.appsName | `String` | optional | An optional name to give to the folder for app output. |
-| options.packagesName | `String` | optional | An optional name to give to the folder for package output. |
-| options.buildDev | `Boolean` | optional | Flag that indicates if unminified bundles will be created.  Defaults to true. |
-| options.buildMin | `Boolean` | optional | Flag that indicates if minified bundles will be created.  Defaults to true. |
-| options.tasksPrefix | `String` | optional | Prefix to prepend to registered tasks. |
-| options.tasksDependencies | `Array.<String>` | optional | Optional array of tasks names that must be completed before these registered tasks runs. |
-  
-**Returns:** `void`  
-
-
-

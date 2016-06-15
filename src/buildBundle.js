@@ -1,72 +1,26 @@
+#!/usr/bin/env node
+
 /**
- * Registers bundle tasks.
+ * Does bundling.
  *
  * @module build-bundle
  */
 'use strict';
 
-/* eslint no-console:0 */
-
-const gulp = require('gulp');
 const path = require('path');
 const zlib = require('zlib');
 const fs = require('fs');
 const del = require('del');
+const chokidar = require('chokidar');
 const browserify = require('browserify');
 const minifyify = require('minifyify');
-const source = require('vinyl-source-stream');
-const buffer = require('vinyl-buffer');
 const fto = require('file-tree-object');
-const BundleManager = require('./bundleManager');
+
+const argsv = require('minimist')(process.argv.slice(2));
 
 const appsPattern = /\.app\.js$/;
 const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
 const frameworkPattern = /^framework[\\\/]/;
-
-/**
-  * This function is used to notify developers of an error that occured
-  * as a result of a changed file.
-  *
-  * @ignore
-  * @param {Error} err - The error to notify the user about.
-  * @param {string} title - The title for the notification window.
-  * @param {string} message - The message to display in the notification window.
-  * @returns {void}
-  */
-function notify(err, title, message) {
-  require('node-notifier').notify({
-    title: title,
-    message: message
-  });
-
-  if (err) {
-    if (err.message) {
-      console.log(err.message);
-    } else {
-      console.log(err);
-    }
-  }
-}
-
-/**
- * Create a zip file.
- *
- * @ignore
- * @param {String} inputFilename - The name of the input file.
- * @param {String} outputFilename - THe name of the output file.
- * @param {Function} cb - The function to call after the file has been created.
- * @return {void}
- */
-function zip(inputFilename, outputFilename, cb) {
-  const gzip = zlib.createGzip();
-  const input = fs.createReadStream(inputFilename);
-  const output = fs.createWriteStream(outputFilename);
-  input
-    .pipe(gzip)
-    .pipe(output)
-    .on('error', function (err) { cb(err); })
-    .on('close', function () { cb(); });
-}
 
 /**
  * Create the path for an exposed module.
@@ -163,11 +117,10 @@ function getParentPackageRequires(dir, includeDir) {
  * @ignore
  * @param {TreeNode} dir - The directory to bundle into an app.
  * @param {Object} opts - The options.
- * @param {Boolean} minify - If true the resulting bundle will be minified.
  * @param {Function} cb - The callback function to execute when complete.
  * @returns {void}
  */
-function bundleApp(dir, opts, minify, cb) {
+function bundleApp(dir, opts, cb) {
   const done = cb || function () {};
   const outputPath = path.join(opts.input.appsOutputDir, dir.getPathFromRoot());
   let apps = null;
@@ -227,11 +180,14 @@ function bundleApp(dir, opts, minify, cb) {
   }
 
   // configure the bundler
-  const bundler = browserify({ debug: true, builtins: false, detectGlobals: false });
+  const bundler = browserify({
+    debug: true,
+    builtins: false,
+    detectGlobals: false
+  });
   bundler.plugin(minifyify, {
-    map: 'bundle.min.js.map',
-    output: path.join(outputPath, 'bundle.min.js.map'),
-    minify: minify
+    map: 'bundle.js.map',
+    output: path.join(outputPath, 'bundle.js.map')
   });
 
   // excluded files and packages
@@ -248,23 +204,32 @@ function bundleApp(dir, opts, minify, cb) {
     });
   }
 
-  // start bundling
-  bundler.bundle()
-    .on('error', function (err) { done(err); })
-    .pipe(source(minify ? 'bundle.min.js' : 'bundle.js'))
-    .pipe(buffer())
-    .pipe(gulp.dest(outputPath))
-    .on('end', function () {
-      if (minify) {
-        zip(path.join(outputPath, 'bundle.min.js'),
-            path.join(outputPath, 'bundle.min.js.gz'),
-            function (err) {
-              done(err);
-            });
-      } else {
-        done();
-      }
-    });
+  // report a bundling error
+  const results = [];
+  const finish = err => {
+    results.push(err);
+    if (results.length === 2) {
+      done(results[0] || results[1]);
+    }
+  };
+
+  // bundle
+  bundler.bundle((bundleError, buf) => {
+    if (bundleError) {
+      done(bundleError);
+    } else {
+      // create output
+      fs.writeFile(path.join(outputPath, 'bundle.js'), buf, finish);
+      // create compressed output
+      zlib.deflate(buf, (zipError, zipBuf) => {
+        if (zipError) {
+          finish(zipError);
+        } else {
+          fs.writeFile(path.join(outputPath, 'bundle.js.gz'), zipBuf, finish);
+        }
+      });
+    }
+  });
 }
 
 /**
@@ -273,11 +238,10 @@ function bundleApp(dir, opts, minify, cb) {
  * @ignore
  * @param {TreeNode} dir - The directory to bundle into a package.
  * @param {Object} opts - The options.
- * @param {Boolean} minify - If true the resulting bundle will be minified.
  * @param {Function} cb - The callback function to execute when complete.
  * @returns {void}
  */
-function bundlePackage(dir, opts, minify, cb) {
+function bundlePackage(dir, opts, cb) {
   const done = cb || function () {};
   const outputPath = path.join(opts.input.packagesOutputDir, dir.getPathFromRoot());
 
@@ -293,14 +257,12 @@ function bundlePackage(dir, opts, minify, cb) {
     return;
   }
   const bundleName = 'bundle' + (packData.version ? '-' + packData.version : '') + '.js';
-  const bundleNameMin = 'bundle' + (packData.version ? '-' + packData.version : '') + '.min.js';
 
   // configure the bundler
   const bundler = browserify({ debug: true, builtins: false, detectGlobals: false });
   bundler.plugin(minifyify, {
-    map: bundleNameMin + '.map',
-    output: path.join(outputPath, bundleNameMin + '.map'),
-    minify: minify
+    map: bundleName + '.map',
+    output: path.join(outputPath, bundleName + '.map')
   });
 
   // exclude parent packages
@@ -314,23 +276,32 @@ function bundlePackage(dir, opts, minify, cb) {
     }
   });
 
-  // start bundling
-  bundler.bundle()
-    .on('error', function (err) { done(err); })
-    .pipe(source(minify ? bundleNameMin : bundleName))
-    .pipe(buffer())
-    .pipe(gulp.dest(outputPath))
-    .on('end', function () {
-      if (minify) {
-        zip(path.join(outputPath, bundleNameMin),
-            path.join(outputPath, bundleNameMin + '.gz'),
-            function (err) {
-              done(err);
-            });
-      } else {
-        done();
-      }
-    });
+  // report a bundling error
+  const results = [];
+  const finish = err => {
+    results.push(err);
+    if (results.length === 2) {
+      done(results[0] || results[1]);
+    }
+  };
+
+  // bundle
+  bundler.bundle((bundleError, buf) => {
+    if (bundleError) {
+      done(bundleError);
+    } else {
+      // create output
+      fs.writeFile(path.join(outputPath, bundleName), buf, finish);
+      // create compressed output
+      zlib.deflate(buf, (zipError, zipBuf) => {
+        if (zipError) {
+          finish(zipError);
+        } else {
+          fs.writeFile(path.join(outputPath, bundleName + '.gz'), zipBuf, finish);
+        }
+      });
+    }
+  });
 }
 
 /**
@@ -343,19 +314,12 @@ function bundlePackage(dir, opts, minify, cb) {
  * @param {Function} cb - The call back function to execute when done.
  * @returns {void}
  */
-function bundle(fn, tree, opts, cb) {
+function bundleStart(fn, tree, opts, cb) {
   const done = cb || function () {};
 
   // determine the number of directories that will be processed
   let pending = 0;
-  let pendNumber = 0;
-  if (opts.input.buildDev) {
-    pendNumber++;
-  }
-  if (opts.input.buildMin) {
-    pendNumber++;
-  }
-  tree.forEachDirectory(function () { pending += pendNumber; }, { recurse: true });
+  tree.forEachDirectory(function () { pending ++; }, { recurse: true });
   if (!pending) {
     done();
     return;
@@ -387,12 +351,7 @@ function bundle(fn, tree, opts, cb) {
 
   // enumerate through each directory and kick off bundle function
   tree.forEachDirectory(function (dir) {
-    if (opts.input.buildMin) {
-      fn(dir, { input: opts.input, framework: fwk }, true, bundleDone);
-    }
-    if (opts.input.buildDev) {
-      fn(dir, { input: opts.input, framework: fwk }, false, bundleDone);
-    }
+    fn(dir, { input: opts.input, framework: fwk }, bundleDone);
   }, { recurse: opts.recurse });
 }
 
@@ -432,30 +391,106 @@ function getNodeForBundle(treeNode) {
 }
 
 /**
- * Register tasks using the given options.
+ * Respond to a change event.
+ *
+ * @ignore
+ * @param {Object} input - The input generated from the bundle function.
+ * @param {String} file - The file that was changed.
+ * @param {String} event - The type of change that occured.
+ * @param {Function} [cb] - Called when this function is done.  It will be passed an error if one occured.
+ * @returns {void}
+ */
+function bundleChanged(input, file, event, cb) {
+  const done = cb || function () {};
+
+  // ignore files that begin with a dot
+  if (path.basename(file)[0] === '.') {
+    return;
+  }
+
+  console.log('watch bundle: ' + file);
+
+  // create tree of directories
+  fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+    .then(function (tree) {
+      // get the tree node
+      const treeNode = tree.getByPath(event === 'unlink' ? path.dirname(file) : file);
+      if (!treeNode) {
+        throw new Error('Could not find node in tree.');
+      }
+
+      const bundleNode = getNodeForBundle(treeNode);
+
+      // package.js file change
+      if (treeNode.basename === 'package.js') {
+        const packageInfo = require(treeNode.path);
+        if (packageInfo.modules) {
+          bundleStart(bundlePackage, bundleNode, { input: input, recurse: false }, done);
+        }
+        if (packageInfo.app) {
+          bundleStart(bundleApp, bundleNode, { input: input, recurse: false }, done);
+        }
+      // all other files
+      } else {
+        bundleStart(bundleApp, bundleNode, { input: input, recurse: false }, done);
+      }
+    })
+    .catch(function (err) {
+      done(err);
+    });
+}
+
+/**
+ * Watch for changes to files that will cause a bundle to be created.
+ *
+ * @ignore
+ * @param {Object} input - The input for the function that was generated by the bundle function.
+ * @return {void}
+ */
+function bundleWatch(input) {
+  const done = function (err) {
+    if (err) {
+      console.error('Bundle Error: ' + err);
+    }
+  };
+
+  const watcher = chokidar.watch(path.join(input.inputDir, '**/*.js'), {
+    ignored: /[\/\\]\./,
+    persistent: true
+  });
+
+  watcher.on('ready', () => {
+    watcher.on('add', file => { bundleChanged(input, file, 'add', done); });
+    watcher.on('change', file => { bundleChanged(input, file, 'change', done); });
+    watcher.on('unlink', file => { bundleChanged(input, file, 'unlink', done); });
+  });
+}
+
+/**
+ * Generate bundles.
  *
  * @param {Object} options - Options for bundling.
  * @param {String} options.inputDir - The folder to bundle app code from.
  * @param {String} options.outputDir - The output for the bundled code.
+ * @param {String} [options.emit] - Select the type of bundles to create.  Choose between app, package, or both.  Defaults to both.
+ * @param {Boolean}[options.clean] - If set to false the output directory will not be deleted first.  Defaults to true.
  * @param {String} [options.version] - An optional version number to output apps code into within the outputDir.
  * @param {String} [options.appsName] - An optional name to give to the folder for app output.
  * @param {String} [options.packagesName] - An optional name to give to the folder for package output.
- * @param {Boolean} [options.buildDev] - Flag that indicates if unminified bundles will be created.  Defaults to true.
- * @param {Boolean} [options.buildMin] - Flag that indicates if minified bundles will be created.  Defaults to true.
- * @param {String} [options.tasksPrefix] - Prefix to prepend to registered tasks.
- * @param {String[]} [options.tasksDependencies] - Optional array of tasks names that must be completed before these registered tasks runs.
+ * @param {Boolean}[options.watch] - If set to true then a watch will be started that responds to changes in files.
+ * @param {Function} [cb] - The function to call when this one finishes.  If an error occured it will be passed to the function.
  * @returns {void}
  */
-function registerTasks(options) {
+function bundle(options, cb) {
   const opts = options || {};
+  const done = cb || function () {};
   const input = {
     inputDir: path.resolve(opts.inputDir),
     outputDir: path.resolve(opts.outputDir),
     version: opts.version,
-    buildDev: (opts.buildDev === undefined) ? true : opts.buildDev,
-    buildMin: (opts.buildMin === undefined) ? true : opts.buildMin,
-    tasksDependencies: opts.tasksDependencies || [],
-    tasksPrefix: (opts.tasksPrefix === undefined) ? '' : opts.tasksPrefix + '-'
+    emit: opts.emit || 'both',
+    clean: (typeof opts.clean === 'undefined') ? true : opts.clean,
+    watch: opts.watch
   };
 
   input.appsOutputDir = input.outputDir;
@@ -468,106 +503,73 @@ function registerTasks(options) {
   input.frameworkDir = path.join(input.inputDir, 'framework');
   input.baseOutputDir = input.inputDir.slice(process.cwd().length);
 
-  /**
-   * Bundle just the apps.
-   */
-  gulp.task(input.tasksPrefix + 'bundleApps', input.tasksDependencies, function (done) {
-    // clear out any previous bundles
-    del.sync(input.appsOutputDir);
-
-    // create tree of directories and bundle directories
-    fto.createTree(input.inputDir, { filePattern: /\.js$/ })
-      .then(function (tree) {
-        bundle(bundleApp, tree, { input: input, recurse: true }, done);
-      })
-      .catch(function (err) {
-        done(err);
-      });
-  });
-
-  /**
-   * Bundle just the packages.
-   */
-  gulp.task(input.tasksPrefix + 'bundlePackages', input.tasksDependencies, function (done) {
-    // clear out any previous bundles
-    del.sync(input.packagesOutputDir);
-
-    // create tree of directories and bundle directories
-    fto.createTree(input.inputDir, { filePattern: /\.js$/ })
-      .then(function (tree) {
-        bundle(bundlePackage, tree, { input: input, recurse: true }, done);
-      })
-      .catch(function (err) {
-        done(err);
-      });
-  });
-
-  /**
-   * Bundle both apps and packages.
-   */
-  gulp.task(input.tasksPrefix + 'bundle', [input.tasksPrefix + 'bundleApps', input.tasksPrefix + 'bundlePackages'], function () {
-  });
-
-  /*
-   * Watch for changes to app files so we can rebundle on the fly.
-   */
-  gulp.task(input.tasksPrefix + 'watch-bundle', function () {
-    const watch = require('gulp-watch');
-    const done = function (err) {
-      if (err) {
-        notify(err, 'Bundle Error', 'See console for details.');
+  // report results
+  const finishResults = (input.emit === 'both') ? [null] : [];
+  const finish = (err) => {
+    finishResults.push(err);
+    if (finishResults.length === 2) {
+      if (input.watch) {
+        bundleWatch(input);
       }
-    };
+      done(finishResults[0] || finishResults[1]);
+    }
+  };
 
-    watch(path.join(input.inputDir, '**/*.js'), function (file) {
-      // ignore files that begin with a dot
-      if (path.basename(file.path)[0] === '.') {
-        return;
+  // create tree of directories and then bundle them
+  fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+    .then(function (tree) {
+      if (input.emit === 'app' || input.emit === 'both') {
+        if (input.clean) {
+          del.sync(input.appsOutputDir);
+        }
+        bundleStart(bundleApp, tree, { input: input, recurse: true }, finish);
       }
-
-      console.log('watch bundle: ' + file.path + ' event: ' + file.event);
-
-      // create tree of directories
-      fto.createTree(input.inputDir, { filePattern: /\.js$/ })
-        .then(function (tree) {
-          // get the tree node
-          const treeNode = tree.getByPath(file.path);
-          if (!treeNode) {
-            throw new Error('Could not find node in tree.');
-          }
-
-          const bundleNode = getNodeForBundle(treeNode);
-
-          // package.js file change
-          if (treeNode.basename === 'package.js') {
-            const packageInfo = require(treeNode.path);
-            if (packageInfo.modules) {
-              bundle(bundlePackage, bundleNode, { input: input, recurse: false }, done);
-            }
-            if (packageInfo.app) {
-              bundle(bundleApp, bundleNode, { input: input, recurse: false }, done);
-            }
-          // all other files
-          } else {
-            bundle(bundleApp, bundleNode, { input: input, recurse: false }, done);
-          }
-        })
-        .catch(function (err) {
-          done(err);
-        });
+      if (input.emit === 'package' || input.emit === 'both') {
+        if (input.clean) {
+          del.sync(input.packagesOutputDir);
+        }
+        bundleStart(bundlePackage, tree, { input: input, recurse: true }, finish);
+      }
+    })
+    .catch(function (err) {
+      done(err);
     });
+}
+
+if (argsv._.length !== 1 || !argsv.o) {
+  //
+  // print help info if args are missing
+  //
+  console.log('Usage: build-bundle <dir> -o <output directory> [-e <app|package|both>]');
+  console.log('                   [-v <version>] [-a <name>] [-p <name>] [-w] [-k]');
+  console.log('');
+  console.log('Options:');
+  console.log('<dir>\t The directory that contains all of the code to bundle.');
+  console.log('-a\t A name to include in the app bundles output path.  Defaults to apps.');
+  console.log('-e\t The type of bundles to emit.  Defaults to both.');
+  console.log('-k\t When this option is specified the output folder will not be deleted before bundles are emitted.');
+  console.log('-o\t The directory to emit bundles to.');
+  console.log('-p\t A name to include in the package bundles output path.  Defaults to packages.');
+  console.log('-v\t A version number to include in the output path.');
+  console.log('-w\t When present the files specified in the glob pattern(s) will be watched for changes and copied when they do change.');
+  process.exitCode = 1;
+} else {
+  //
+  // bundle files specified and optional begin watch
+  //
+  bundle({
+    inputDir: argsv._[0],
+    outputDir: argsv.o,
+    emit: argsv.e,
+    clean: !argsv.k,
+    version: argsv.v,
+    appsName: argsv.a,
+    packagesName: argsv.p,
+    watch: argsv.w
+  }, (err) => {
+    if (err) {
+      console.error('Bundle Error: ' + err);
+      console.error(err.stack);
+    }
   });
 }
-
-/**
- * Create a new instance of the BundleManager class.
- *
- * @param {Object} opts - The options passed to the BundleManager constructor.  See {@link BundleManager} for the parameters.
- * @return {BundleManager} A new instance of BundleManager.
- */
-function createManager(opts) {
-  return new BundleManager(opts);
-}
-
-module.exports.registerTasks = registerTasks;
-module.exports.createManager = createManager;
