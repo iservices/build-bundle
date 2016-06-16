@@ -15,12 +15,15 @@ const chokidar = require('chokidar');
 const browserify = require('browserify');
 const minifyify = require('minifyify');
 const fto = require('file-tree-object');
+const Debouncer = require('./debouncer');
 
 const argsv = require('minimist')(process.argv.slice(2));
 
 const appsPattern = /\.app\.js$/;
 const appsOrPackagePattern = /(\.app\.js$)|([\\\/]package\.js$)/;
 const frameworkPattern = /^framework[\\\/]/;
+
+const debouncer = new Debouncer();
 
 /**
  * Create the path for an exposed module.
@@ -319,7 +322,7 @@ function bundleStart(fn, tree, opts, cb) {
 
   // determine the number of directories that will be processed
   let pending = 0;
-  tree.forEachDirectory(function () { pending ++; }, { recurse: true });
+  tree.forEachDirectory(function () { pending ++; }, { recurse: opts.recurse });
   if (!pending) {
     done();
     return;
@@ -408,8 +411,6 @@ function bundleChanged(input, file, event, cb) {
     return;
   }
 
-  console.log('watch bundle: ' + file);
-
   // create tree of directories
   fto.createTree(input.inputDir, { filePattern: /\.js$/ })
     .then(function (tree) {
@@ -419,21 +420,14 @@ function bundleChanged(input, file, event, cb) {
         throw new Error('Could not find node in tree.');
       }
 
+      // bundle
       const bundleNode = getNodeForBundle(treeNode);
-
-      // package.js file change
-      if (treeNode.basename === 'package.js') {
-        const packageInfo = require(treeNode.path);
-        if (packageInfo.modules) {
-          bundleStart(bundlePackage, bundleNode, { input: input, recurse: false }, done);
-        }
-        if (packageInfo.app) {
-          bundleStart(bundleApp, bundleNode, { input: input, recurse: false }, done);
-        }
-      // all other files
-      } else {
-        bundleStart(bundleApp, bundleNode, { input: input, recurse: false }, done);
-      }
+      debouncer.run(bundleNode.path, () => {
+        fto.createTree(bundleNode.path, { filePattern: /\.js$/ })
+          .then(currentTree => {
+            bundleStart(bundleApp, currentTree, { input: input, recurse: false }, done);
+          });
+      });
     })
     .catch(function (err) {
       done(err);
@@ -503,37 +497,39 @@ function bundle(options, cb) {
   input.frameworkDir = path.join(input.inputDir, 'framework');
   input.baseOutputDir = input.inputDir.slice(process.cwd().length);
 
-  // report results
-  const finishResults = (input.emit === 'both') ? [null] : [];
-  const finish = (err) => {
-    finishResults.push(err);
-    if (finishResults.length === 2) {
-      if (input.watch) {
-        bundleWatch(input);
+  if (input.watch) {
+    // watch for changes
+    bundleWatch(input);
+  } else {
+    // report results
+    const finishResults = (input.emit === 'both') ? [null] : [];
+    const finish = (err) => {
+      finishResults.push(err);
+      if (finishResults.length === 2) {
+        done(finishResults[0] || finishResults[1]);
       }
-      done(finishResults[0] || finishResults[1]);
-    }
-  };
+    };
 
-  // create tree of directories and then bundle them
-  fto.createTree(input.inputDir, { filePattern: /\.js$/ })
-    .then(function (tree) {
-      if (input.emit === 'app' || input.emit === 'both') {
-        if (input.clean) {
-          del.sync(input.appsOutputDir);
+    // create tree of directories and then bundle them
+    fto.createTree(input.inputDir, { filePattern: /\.js$/ })
+      .then(function (tree) {
+        if (input.emit === 'app' || input.emit === 'both') {
+          if (input.clean) {
+            del.sync(input.appsOutputDir);
+          }
+          bundleStart(bundleApp, tree, { input: input, recurse: true }, finish);
         }
-        bundleStart(bundleApp, tree, { input: input, recurse: true }, finish);
-      }
-      if (input.emit === 'package' || input.emit === 'both') {
-        if (input.clean) {
-          del.sync(input.packagesOutputDir);
+        if (input.emit === 'package' || input.emit === 'both') {
+          if (input.clean) {
+            del.sync(input.packagesOutputDir);
+          }
+          bundleStart(bundlePackage, tree, { input: input, recurse: true }, finish);
         }
-        bundleStart(bundlePackage, tree, { input: input, recurse: true }, finish);
-      }
-    })
-    .catch(function (err) {
-      done(err);
-    });
+      })
+      .catch(function (err) {
+        done(err);
+      });
+  }
 }
 
 if (argsv._.length !== 1 || !argsv.o) {
