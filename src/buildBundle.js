@@ -569,7 +569,7 @@ if (argsv._.length !== 1 || !argsv.o) {
   }, (err) => {
     if (err) {
       console.error('Bundle Error: ' + err);
-      console.error(err.stack);
+      process.exitCode = 1;
     }
   });
 }

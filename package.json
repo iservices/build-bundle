@@ -1,6 +1,6 @@
 {
   "name": "build-bundle",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Code bundle command line tool.",
   "main": "src/bundleManager.js",
   "bin": "src/buildBundle.js",
