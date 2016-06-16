@@ -221,7 +221,7 @@ function bundleApp(dir, opts, cb) {
       // create output
       fs.writeFile(path.join(outputPath, 'bundle.js'), buf, finish);
       // create compressed output
-      zlib.deflate(buf, (zipError, zipBuf) => {
+      zlib.gzip(buf, (zipError, zipBuf) => {
         if (zipError) {
           finish(zipError);
         } else {
@@ -293,7 +293,7 @@ function bundlePackage(dir, opts, cb) {
       // create output
       fs.writeFile(path.join(outputPath, bundleName), buf, finish);
       // create compressed output
-      zlib.deflate(buf, (zipError, zipBuf) => {
+      zlib.gzip(buf, (zipError, zipBuf) => {
         if (zipError) {
           finish(zipError);
         } else {
