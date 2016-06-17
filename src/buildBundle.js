@@ -423,9 +423,12 @@ function bundleChanged(input, file, event, cb) {
       // bundle
       const bundleNode = getNodeForBundle(treeNode);
       debouncer.run(bundleNode.path, () => {
-        fto.createTree(bundleNode.path, { filePattern: /\.js$/ })
+        fto.createTree(input.inputDir, { filePattern: /\.js$/ })
           .then(currentTree => {
-            bundleStart(bundleApp, currentTree, { input: input, recurse: false }, done);
+            const currentBundleNode = currentTree.getByPath(bundleNode.path);
+            if (currentBundleNode) {
+              bundleStart(bundleApp, currentBundleNode, { input: input, recurse: false }, done);
+            }
           });
       });
     })
