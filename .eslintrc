@@ -3,6 +3,9 @@
 {
   "extends": "iservices",
   "parser": "babel-eslint",
+  "plugins": [
+    "babel"
+  ],
   "env": {
     "es6": false,
     "browser": false,
