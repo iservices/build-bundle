@@ -35,7 +35,7 @@ const BundleManager = function (opts) {
  *
  * @ignore
  * @param {String} fileType - The type of script.  Either 'apps' or 'packages'.
- * @param {TreeNode} file - The file to create a script tag for.
+ * @param {TreeNode|String} file - The file to create a script tag for.
  * @returns {String} The script tag.
  */
 BundleManager.prototype.formatScriptTag = function (fileType, file) {
@@ -43,7 +43,7 @@ BundleManager.prototype.formatScriptTag = function (fileType, file) {
          path.join(this.baseUrlPath,
                    (fileType === this.packagesName ? '' : this.version),
                    fileType,
-                   file.getPathFromRoot())
+                   typeof file === 'string' ? file : file.getPathFromRoot())
           .replace(/\\/g, '/') + '" defer></script>';
 };
 
