@@ -427,7 +427,7 @@ function bundleChanged(input, file, event, cb) {
           .then(currentTree => {
             const currentBundleNode = currentTree.getByPath(bundleNode.path);
             if (currentBundleNode) {
-              bundleStart(bundleApp, currentBundleNode, { input: input, recurse: false }, done);
+              bundleStart(bundleApp, currentBundleNode, { input, recurse: false }, done);
             }
           });
       });
@@ -520,13 +520,13 @@ function bundle(options, cb) {
           if (input.clean) {
             del.sync(input.appsOutputDir);
           }
-          bundleStart(bundleApp, tree, { input: input, recurse: true }, finish);
+          bundleStart(bundleApp, tree, { input, recurse: true }, finish);
         }
         if (input.emit === 'package' || input.emit === 'both') {
           if (input.clean) {
             del.sync(input.packagesOutputDir);
           }
-          bundleStart(bundlePackage, tree, { input: input, recurse: true }, finish);
+          bundleStart(bundlePackage, tree, { input, recurse: true }, finish);
         }
       })
       .catch(function (err) {
@@ -535,18 +535,31 @@ function bundle(options, cb) {
   }
 }
 
+// get version from package.json
+if (argsv.m && !argsv.v) {
+  try {
+    argsv.v = (typeof argsv.m === 'string') ?
+      JSON.parse(fs.readFileSync(argsv.m)).version :
+      JSON.parse(fs.readFileSync('./package.json')).version;
+  } catch (err) {
+    console.error(err);
+    return 1;
+  }
+}
+
 if (argsv._.length !== 1 || !argsv.o) {
   //
   // print help info if args are missing
   //
   console.log('Usage: build-bundle <dir> -o <output directory> [-e <app|package|both>]');
-  console.log('                   [-v <version>] [-a <name>] [-p <name>] [-w] [-k]');
+  console.log('                    [-m [<package.json]] [-v <version>] [-a <name>] [-p <name>] [-w] [-k]');
   console.log('');
   console.log('Options:');
   console.log('<dir>\t The directory that contains all of the code to bundle.');
   console.log('-a\t A name to include in the app bundles output path.  Defaults to apps.');
   console.log('-e\t The type of bundles to emit.  Defaults to both.');
   console.log('-k\t When this option is specified the output folder will not be deleted before bundles are emitted.');
+  console.log('-m\t Read in the version number from a package.json file.  If a file isn\'t specified the package.json in the cwd will be used.');
   console.log('-o\t The directory to emit bundles to.');
   console.log('-p\t A name to include in the package bundles output path.  Defaults to packages.');
   console.log('-v\t A version number to include in the output path.');

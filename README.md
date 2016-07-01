@@ -192,7 +192,7 @@ The resulting tags array would be made up of the following string values in the 
 Usage:
 ```
 build-bundle <dir> -o <output directory> [-e <app|package|both>]
-             [-v <version>] [-a <name>] [-p <name>] [-w] [-k]
+             [-m [<package.json]] [-v <version>] [-a <name>] [-p <name>] [-w] [-k]
 ```
 Options:
 
@@ -202,6 +202,7 @@ Options:
 | -a     | A name to include in the app bundles output path.  Defaults to apps. |
 | -e     | The type of bundles to emit.  Choices are app, package, and both.  Defaults to both. |
 | -k     | When this option is specified the output folder will not be deleted before bundles are emitted. |
+| -m     | Read in the version number from a package.json file.  If a file isn't specified the package.json in the cwd will be used. |
 | -o     | The directory to emit bundles to. |
 | -p     | A name to include in the package bundles output path.  Defaults to packages. |
 | -v     | A version number to include in the output path. |
