@@ -171,6 +171,15 @@ function bundleApp(dir, opts, cb) {
       done();
       return;
     }
+    const parentPackageFile = parent.getByPath('package.js');
+    if (parentPackageFile) {
+      let parentPackageData = require(parentPackageFile.path);
+      if (parentPackageData.default) parentPackageData = parentPackageData.default;
+      if (parentPackageData.app) {
+        done();
+        return;
+      }
+    }
     // collect list of files
     parent.files.forEach(addToExternals);
     parent = parent.parent;
